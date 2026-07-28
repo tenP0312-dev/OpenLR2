@@ -19,7 +19,11 @@ find_package(ZLIB REQUIRED)
 find_package(unofficial-theora CONFIG REQUIRED)
 
 add_library(SQLite STATIC dep/sqlite/sqlite3.c)
-target_include_directories(SQLite PUBLIC dep/sqlite)
+target_include_directories(
+    SQLite
+    PRIVATE dep/sqlite
+    PUBLIC dep/sqlite-include
+)
 
 add_library(
     TinyXML
