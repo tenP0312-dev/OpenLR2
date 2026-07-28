@@ -3081,6 +3081,16 @@ void DrawOverlay(const game* gameState)
 	if (g_client) g_client->Draw(gameState);
 }
 
+void PrepareGraphicsReset()
+{
+	imgui_overlay::PrepareGraphicsReset();
+}
+
+void CompleteGraphicsReset()
+{
+	imgui_overlay::CompleteGraphicsReset();
+}
+
 bool ConsumePreparedChart(game* gameState, sqlite3* songDatabase)
 {
 	return g_client && g_client->ConsumePreparedChart(gameState, songDatabase);

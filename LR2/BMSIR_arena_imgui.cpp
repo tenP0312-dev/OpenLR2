@@ -33,6 +33,13 @@ bool g_initialized{};
 bool g_interactive{};
 Renderer g_renderer{Renderer::None};
 
+void ShutdownRenderer()
+{
+	if (g_renderer == Renderer::Direct3D9) ImGui_ImplDX9_Shutdown();
+	else if (g_renderer == Renderer::Direct3D11) ImGui_ImplDX11_Shutdown();
+	g_renderer = Renderer::None;
+}
+
 LRESULT CALLBACK ArenaWindowProc(
 	HWND window,
 	UINT message,
@@ -139,8 +146,7 @@ bool Initialize()
 		LogEvent("imgui_initialize_failed", {
 			{"direct3d_version", GetUseDirect3DVersion()},
 		});
-		if (g_renderer == Renderer::Direct3D9) ImGui_ImplDX9_Shutdown();
-		else if (g_renderer == Renderer::Direct3D11) ImGui_ImplDX11_Shutdown();
+		ShutdownRenderer();
 		ImGui_ImplWin32_Shutdown();
 		ImGui::DestroyContext();
 		g_renderer = Renderer::None;
@@ -158,8 +164,7 @@ void Shutdown()
 {
 	if (!g_initialized) return;
 	SetHookWinProc(nullptr);
-	if (g_renderer == Renderer::Direct3D9) ImGui_ImplDX9_Shutdown();
-	else if (g_renderer == Renderer::Direct3D11) ImGui_ImplDX11_Shutdown();
+	ShutdownRenderer();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
 	g_renderer = Renderer::None;
@@ -193,6 +198,22 @@ void EndFrame()
 	}
 }
 
+void PrepareGraphicsReset()
+{
+	if (!g_initialized) return;
+	ShutdownRenderer();
+}
+
+void CompleteGraphicsReset()
+{
+	if (!g_initialized || g_renderer != Renderer::None) return;
+	if (!InitializeRenderer()) {
+		LogEvent("imgui_renderer_reinitialize_failed", {
+			{"direct3d_version", GetUseDirect3DVersion()},
+		});
+	}
+}
+
 bool Available()
 {
 	return g_initialized;
@@ -218,6 +239,8 @@ bool Initialize() { return false; }
 void Shutdown() {}
 bool BeginFrame(bool) { return false; }
 void EndFrame() {}
+void PrepareGraphicsReset() {}
+void CompleteGraphicsReset() {}
 bool Available() { return false; }
 bool WantsMouseCapture() { return false; }
 bool WantsKeyboardCapture() { return false; }

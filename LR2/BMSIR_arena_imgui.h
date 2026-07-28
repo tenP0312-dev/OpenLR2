@@ -6,6 +6,8 @@ bool Initialize();
 void Shutdown();
 bool BeginFrame(bool interactive);
 void EndFrame();
+void PrepareGraphicsReset();
+void CompleteGraphicsReset();
 bool Available();
 bool WantsMouseCapture();
 bool WantsKeyboardCapture();
