@@ -1711,7 +1711,7 @@ void ProcGameThread(game *g) {
 	while (GetTimeLapse(40,&g->timer1) < g->skstruct.playstart
 		|| (!openlr2::arena::IgnorePlayStartInputDelay()
 			&& (g->KeyInput.inputID[2] || g->KeyInput.inputID[3] || g->KeyInput.inputID[4] || g->KeyInput.inputID[5] || g->KeyInput.inputID[6] || g->KeyInput.inputID[7] || g->KeyInput.inputID[8] || g->KeyInput.inputID[9]	|| g->KeyInput.inputID[11]
-		|| g->KeyInput.p1_buttonInput[12] || g->KeyInput.p1_buttonInput[13] || g->KeyInput.p2_buttonInput[12] || g->KeyInput.p2_buttonInput[13])) {
+		|| g->KeyInput.p1_buttonInput[12] || g->KeyInput.p1_buttonInput[13] || g->KeyInput.p2_buttonInput[12] || g->KeyInput.p2_buttonInput[13]))) {
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(16));
 		ReactInput(g);
