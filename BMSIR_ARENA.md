@@ -1,4 +1,4 @@
-# BMS-IR Arena for OpenLR2 0.2.0
+# BMS-IR Arena for OpenLR2 0.3.0
 
 Status: controlled direct-link tester client for Issue
 [`BMS-Mania/IR#656`](https://github.com/BMS-Mania/IR/issues/656). It has not
@@ -24,26 +24,25 @@ client.
    `LR2files/Config/bmsir-arena.json`.
 5. If OpenLR2 did not obtain the numeric IR ID during login, set `player_id`
    in that JSON. Do not put a password, token, or passmd5 in the Arena JSON.
-6. Start the Arena-enabled OpenLR2 build. On music select or result, press
-   `F9` to open the Arena control panel. `Tab` changes pages, arrow keys move or
-   change a setting, and `Enter` activates it.
+6. Start the Arena-enabled OpenLR2 build. The Arena window opens in the game
+   screen. Every Arena action is available through its tabs, buttons, check
+   boxes, combo boxes, and text fields with the mouse.
 
 To restore ordinary OpenLR2, close the game and restore the backed-up
 executable.
 
 ## Controls
 
-- `F9`: open or close the Arena control panel on music select/result.
-- `F10`: hide or restore the complete Arena overlay from any scene.
-- `Insert`: context action outside the panel: rated entry, room READY, chart
-  nomination, or option READY.
-- `Delete`: delegate a room nomination to server random.
-- `End`: vote to force-end the active chart. Disconnected players are treated
-  as having voted; the chart ends after all remaining players vote.
+The ArenaEX-style movable and resizable window has `ロビー`, `公開ルーム`,
+`ルーム設定`, `チャット`, and `マニュアル` tabs. All controls are mouse
+operable and no Arena keyboard shortcut is required. Close or reopen the main
+window with the button in the compact Arena status window. Text fields accept
+normal keyboard input; chat may be sent with Enter or the send button.
 
-The five control pages are `MAIN`, `PUBLIC ROOMS`, `ROOM SETUP`, `CHAT`, and
-`MANUAL`. Text fields use OpenLR2's text-input window and are confirmed with
-Enter.
+During a match, the live window shows the rule-specific relative bars and the
+latest room messages. The room control page contains the force-end vote button.
+Disconnected players are treated as having voted; the chart ends after all
+remaining players vote.
 
 ## Implemented lifecycle
 

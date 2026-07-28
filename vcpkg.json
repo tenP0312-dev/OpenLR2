@@ -6,6 +6,16 @@
     "libtheora",
     "libtheora",
     "libvorbis",
+    {
+      "name": "imgui",
+      "default-features": false,
+      "features": [
+        "dx9-binding",
+        "dx11-binding",
+        "win32-binding"
+      ],
+      "platform": "windows"
+    },
     "nlohmann-json",
     "opus",
     "opusfile",

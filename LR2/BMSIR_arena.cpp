@@ -1,5 +1,6 @@
 #include "BMSIR_arena.h"
 
+#include "BMSIR_arena_imgui.h"
 #include "BMSIR_arena_log.h"
 #include "BMSIR_arena_protocol.h"
 #include "BMSIR_arena_transport.h"
@@ -29,6 +30,11 @@
 #include <tuple>
 #include <vector>
 
+#ifdef _WIN32
+#include <imgui.h>
+#include <imgui_stdlib.h>
+#endif
+
 #ifndef OPENLR2_ARENA_BUILD_HASH
 #define OPENLR2_ARENA_BUILD_HASH "unknown"
 #endif
@@ -38,10 +44,6 @@ namespace {
 
 using Clock = std::chrono::steady_clock;
 
-constexpr int kPanelToggleKey = KEY_INPUT_F9;
-constexpr int kOverlayToggleKey = KEY_INPUT_F10;
-constexpr int kForceEndKey = KEY_INPUT_END;
-constexpr int kPanelPageCount = 5;
 constexpr int kMaxChatMessages = 20;
 
 struct RoomSettings {
@@ -108,8 +110,9 @@ public:
 	explicit Client(game* gameState)
 		: game_(gameState),
 		  config_(ReadConfig()),
-		  overlayVisible_(config_.showOverlay)
+		  overlayVisible_(true)
 	{
+		config_.showOverlay = true;
 		manualView_ = ReadManualCache();
 		LogEvent("initialize", {
 			{"enabled", config_.enabled},
@@ -184,8 +187,13 @@ public:
 		}
 		UpdateScene();
 		PollTextInput();
-		HandleUiKeys();
-		HandleArenaHotkeys();
+		if (panelOpen_) {
+			game_->KeyInput.mouse_buttonL = 0;
+			game_->KeyInput.mouse_buttonR = 0;
+			game_->KeyInput.mouse_buttonW = 0;
+			game_->KeyInput.mouse_button4 = 0;
+			game_->KeyInput.mousewheel = 0;
+		}
 		SendLiveIfDue();
 		if (!transport_.Running()
 			&& now - lastConnectAttempt_ >= std::chrono::seconds(5)) {
@@ -198,9 +206,17 @@ public:
 		}
 	}
 
-	void Draw(const game*) const
+	void Draw(const game*)
 	{
 		if (!config_.enabled || !overlayVisible_) return;
+#ifdef _WIN32
+		const bool launcherInteractive = scene_ == "select" || scene_ == "result";
+		if (imgui_overlay::BeginFrame(panelOpen_ || launcherInteractive)) {
+			DrawImGui();
+			imgui_overlay::EndFrame();
+			return;
+		}
+#endif
 		const int connectedColor = authenticated_
 			? GetColor(180, 255, 180)
 			: GetColor(255, 210, 120);
@@ -208,12 +224,12 @@ public:
 		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 220);
 		DrawBox(8, 8, 862, 116, background, TRUE);
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 255);
-		DrawString(16, 14, "BMS-IR Arena for OpenLR2 0.2.0 / protocol v5", connectedColor);
+		DrawString(16, 14, "BMS-IR Arena for OpenLR2 0.3.0 / protocol v5", connectedColor);
 		DrawFormatString(
 			16,
 			34,
 			GetColor(235, 235, 240),
-			"F9: control panel  F10: overlay  Insert: primary action  status: %s",
+			"status: %s",
 			status_.c_str());
 		const auto [action, seconds, deadline] = PhaseActionAndCountdown();
 		const int actionColor = deadline
@@ -631,7 +647,7 @@ private:
 				return;
 			}
 			authenticated_ = true;
-			status_ = "connected; F9 opens Arena controls";
+			status_ = "connected; Arena controls are ready";
 			UpdateClock(message);
 			SendState();
 			RequestStatus();
@@ -740,7 +756,7 @@ private:
 			optionReadySent_ = message.value("ready", false);
 			status_ = optionReadySent_
 				? "option locked; waiting for others"
-				: "choose lane option; Insert to READY";
+				: "choose lane option and press READY";
 			return;
 		}
 		if (type == "prepare") {
@@ -890,7 +906,7 @@ private:
 						: "in room; waiting for READY";
 				}
 				else if (queueStatus_ == "cancelled" || queueStatus_ == "idle") {
-					status_ = "connected; F9 opens Arena controls";
+					status_ = "connected; Arena controls are ready";
 				}
 				if (previous != queueStatus_) {
 					LogEvent("queue_status_changed", {
@@ -1019,7 +1035,7 @@ private:
 		}
 		else {
 			status_ = canNominate
-				? "select a chart; Insert nominates / Delete random"
+				? "select a chart and nominate it from the Arena window"
 				: "waiting for the selector";
 		}
 	}
@@ -1180,92 +1196,7 @@ private:
 			Send(MatchMessage("forfeit", {{"reason", "play_aborted"}}));
 		}
 		if (current == "select" && !active_) arenaChart_ = false;
-		if (current != "select" && current != "result") {
-			panelOpen_ = false;
-			CloseTextInput();
-		}
-	}
-
-	bool ConsumeKey(const int key)
-	{
-		if (game_->KeyInput.inputID[key] != 1) return false;
-		game_->KeyInput.inputID[key] = 0;
-		return true;
-	}
-
-	void HandleUiKeys()
-	{
-		if (ConsumeKey(kOverlayToggleKey)) {
-			overlayVisible_ = !overlayVisible_;
-			config_.showOverlay = overlayVisible_;
-			WriteConfig();
-		}
-		if (textTarget_ != TextTarget::None) return;
-		if (ConsumeKey(kPanelToggleKey)
-			&& (scene_ == "select" || scene_ == "result")) {
-			panelOpen_ = !panelOpen_;
-			if (panelOpen_) RequestStatus();
-		}
-		if (!panelOpen_) return;
-		if (ConsumeKey(KEY_INPUT_ESCAPE)) {
-			panelOpen_ = false;
-			return;
-		}
-		if (ConsumeKey(KEY_INPUT_TAB)) {
-			panelPage_ = (panelPage_ + 1) % kPanelPageCount;
-			menuIndex_ = 0;
-			return;
-		}
-			const int itemCount = static_cast<int>(MenuItems().size());
-		if (itemCount > 0) {
-			if (ConsumeKey(KEY_INPUT_UP)) {
-				menuIndex_ = menuIndex_ == 0 ? itemCount - 1 : menuIndex_ - 1;
-			}
-			if (ConsumeKey(KEY_INPUT_DOWN)) {
-				menuIndex_ = (menuIndex_ + 1) % itemCount;
-			}
-			if (ConsumeKey(KEY_INPUT_LEFT)) AdjustMenu(-1);
-			if (ConsumeKey(KEY_INPUT_RIGHT)) AdjustMenu(1);
-			if (ConsumeKey(KEY_INPUT_RETURN)) ActivateMenu();
-		}
-	}
-
-	void HandleArenaHotkeys()
-	{
-		if (!authenticated_) return;
-		if (active_ && scene_ == "play" && ConsumeKey(kForceEndKey)) {
-			if (!forceEndVoteSent_) {
-				Send(MatchMessage("force_end_vote"));
-				forceEndVoteSent_ = true;
-				status_ = "force-end vote sent";
-			}
-			return;
-		}
-		if (game_->procSelecter != 2 || panelOpen_
-			|| textTarget_ != TextTarget::None) return;
-		if (ConsumeKey(KEY_INPUT_DELETE)
-			&& reserved_ && phase_ == "selecting"
-			&& matchMode_ != "ranked") {
-			Send(MatchMessage("chart_nomination_skip"));
-			status_ = "random nomination submitted";
-			return;
-		}
-		if (!ConsumeKey(KEY_INPUT_INSERT)) return;
-		if (reserved_ && phase_ == "options" && chartAvailable_
-			&& !optionReadySent_) {
-			SendOptionReady();
-			return;
-		}
-		if (reserved_ && phase_ == "selecting" && matchMode_ != "ranked") {
-			NominateCurrentChart();
-			return;
-		}
-		if (!roomCode_.empty() && !active_) {
-			RequestRoomReady(!roomReady_);
-			return;
-		}
-		if (active_) return;
-		RequestRatedToggle();
+		if (current != "select" && current != "result") CloseTextInput();
 	}
 
 	void SendOptionReady()
@@ -1594,7 +1525,7 @@ private:
 					std::string("Room READY: ") + (roomReady_ ? "ON" : "OFF"),
 					std::string("Participating: ") + (IsParticipating() ? "ON" : "SPECTATE"),
 					"Close result",
-					"Vote to force-end current chart (End during play)",
+					"Vote to force-end current chart",
 					"Copy current room code",
 					"Refresh Arena status",
 				};
@@ -2087,7 +2018,7 @@ private:
 		else if (phase_ == "options") {
 			action = optionReadySent_
 				? "Waiting for other players' options"
-				: "Choose options and press Insert";
+				: "Choose options and press READY";
 			deadline = optionDeadline_;
 		}
 		else if (phase_ == "loading") {
@@ -2098,15 +2029,15 @@ private:
 			action = "Arena match starts";
 			deadline = startAt_;
 		}
-		else if (phase_ == "playing") action = "Playing (End: force-end vote)";
-		else if (resultVisible_) action = "Match result (F9: close / next controls)";
+		else if (phase_ == "playing") action = "Playing";
+		else if (resultVisible_) action = "Match result";
 		else if (!roomCode_.empty()) {
 			action = roomView_.value("paused", false)
 				? "Room break: everyone is spectating"
 				: "Room lobby: press READY when prepared";
 		}
 		else if (queueStatus_ == "queued") action = "Waiting for Arena match";
-		else action = "Open F9 controls to enter Arena or a room";
+		else action = "Open Arena controls to enter Arena or a room";
 		if (!playModeLabel_.empty()
 			&& (reserved_ || active_ || resultVisible_)) {
 			action += " / " + playModeLabel_;
@@ -2129,6 +2060,648 @@ private:
 				return GetColor(190, 220, 255);
 		}
 	}
+
+#ifdef _WIN32
+	static ImVec4 CountdownImGuiColor(const long long seconds)
+	{
+		switch (CountdownColorBand(seconds)) {
+			case CountdownBand::Red:
+				return ImVec4(1.0f, 0.28f, 0.28f, 1.0f);
+			case CountdownBand::Yellow:
+				return ImVec4(1.0f, 0.86f, 0.22f, 1.0f);
+			default:
+				return ImVec4(0.72f, 0.86f, 1.0f, 1.0f);
+		}
+	}
+
+	static bool ComboString(
+		const char* label,
+		std::string& value,
+		const std::vector<std::string>& choices)
+	{
+		bool changed = false;
+		if (ImGui::BeginCombo(label, value.c_str())) {
+			for (const auto& choice : choices) {
+				const bool selected = value == choice;
+				if (ImGui::Selectable(choice.c_str(), selected)) {
+					value = choice;
+					changed = true;
+				}
+				if (selected) ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+		return changed;
+	}
+
+	void DrawImGui()
+	{
+		DrawImGuiStatus();
+		if (liveView_.is_object() && liveView_.contains("players")) {
+			DrawImGuiBattle();
+		}
+		if (resultVisible_ && resultView_.is_object()) DrawImGuiResult();
+		if (!panelOpen_) return;
+
+		ImGui::SetNextWindowSize(ImVec2(940.0f, 610.0f), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowPos(ImVec2(22.0f, 150.0f), ImGuiCond_FirstUseEver);
+		bool open = panelOpen_;
+		if (!ImGui::Begin(
+				"BMS-IR Arena for OpenLR2",
+				&open,
+				ImGuiWindowFlags_NoCollapse)) {
+			ImGui::End();
+			panelOpen_ = open;
+			return;
+		}
+		panelOpen_ = open;
+		ImGui::TextColored(
+			authenticated_
+				? ImVec4(0.52f, 1.0f, 0.60f, 1.0f)
+				: ImVec4(1.0f, 0.78f, 0.35f, 1.0f),
+			"%s",
+			authenticated_ ? "CONNECTED" : "CONNECTING");
+		ImGui::SameLine();
+		ImGui::TextDisabled(
+			"0.3.0 / protocol v%d",
+			kProtocolVersion);
+		ImGui::Separator();
+
+		const float rosterWidth = std::clamp(
+			ImGui::GetContentRegionAvail().x * 0.28f,
+			210.0f,
+			300.0f);
+		ImGui::BeginChild(
+			"##arena-roster",
+			ImVec2(rosterWidth, 0.0f),
+			ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
+		DrawImGuiRoster();
+		ImGui::EndChild();
+		ImGui::SameLine();
+		ImGui::BeginChild("##arena-main", ImVec2(0.0f, 0.0f));
+		if (ImGui::BeginTabBar("##arena-tabs")) {
+			if (ImGui::BeginTabItem("ロビー")) {
+				DrawImGuiLobby();
+				ImGui::EndTabItem();
+			}
+			if (ImGui::BeginTabItem("公開ルーム")) {
+				DrawImGuiPublicRooms();
+				ImGui::EndTabItem();
+			}
+			if (ImGui::BeginTabItem("ルーム設定")) {
+				DrawImGuiRoomSettings();
+				ImGui::EndTabItem();
+			}
+			if (ImGui::BeginTabItem("チャット")) {
+				DrawImGuiChat();
+				ImGui::EndTabItem();
+			}
+			if (ImGui::BeginTabItem("マニュアル")) {
+				DrawImGuiManual();
+				ImGui::EndTabItem();
+			}
+			ImGui::EndTabBar();
+		}
+		ImGui::EndChild();
+		ImGui::End();
+	}
+
+	void DrawImGuiStatus()
+	{
+		ImGui::SetNextWindowPos(ImVec2(8.0f, 8.0f), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(720.0f, 128.0f), ImGuiCond_FirstUseEver);
+		ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse
+			| ImGuiWindowFlags_NoTitleBar
+			| ImGuiWindowFlags_NoSavedSettings;
+		const bool canOpenPanel = scene_ == "select" || scene_ == "result";
+		if (!panelOpen_ && !canOpenPanel) {
+			flags |= ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize;
+		}
+		if (!ImGui::Begin("##arena-status", nullptr, flags)) {
+			ImGui::End();
+			return;
+		}
+		ImGui::TextColored(
+			authenticated_
+				? ImVec4(0.52f, 1.0f, 0.60f, 1.0f)
+				: ImVec4(1.0f, 0.78f, 0.35f, 1.0f),
+			"BMS-IR Arena OpenLR2 0.3.0  %s",
+			authenticated_ ? "CONNECTED" : "CONNECTING");
+		const auto [action, seconds, deadline] = PhaseActionAndCountdown();
+		if (deadline) {
+			ImGui::TextColored(
+				CountdownImGuiColor(seconds),
+				"%s   %lld秒",
+				action.c_str(),
+				seconds);
+		}
+		else {
+			ImGui::TextColored(
+				ImVec4(0.72f, 0.86f, 1.0f, 1.0f),
+				"%s",
+				action.c_str());
+		}
+		ImGui::Text(
+			"レート %.0f / 対戦 %d / 状態 %s / 部屋 %s",
+			arenaRating_,
+			arenaMatchesPlayed_,
+			queueStatus_.c_str(),
+			roomCode_.empty() ? "-" : roomCode_.c_str());
+		ImGui::TextDisabled("%s", status_.c_str());
+		if (canOpenPanel) {
+			if (ImGui::Button(panelOpen_ ? "Arenaメニューを閉じる" : "Arenaメニューを開く")) {
+				panelOpen_ = !panelOpen_;
+				if (panelOpen_) RequestStatus();
+			}
+		}
+		ImGui::End();
+	}
+
+	void DrawImGuiBattle()
+	{
+		const auto players = liveView_.value("players", nlohmann::json::array());
+		if (!players.is_array() || players.empty()) return;
+		ImGui::SetNextWindowPos(ImVec2(8.0f, 142.0f), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(720.0f, 86.0f + players.size() * 38.0f), ImGuiCond_FirstUseEver);
+		ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse;
+		if (!panelOpen_) flags |= ImGuiWindowFlags_NoInputs;
+		if (!ImGui::Begin("リアルタイム対戦", nullptr, flags)) {
+			ImGui::End();
+			return;
+		}
+		const auto chart = liveView_.value("chart", nlohmann::json::object());
+		ImGui::Text(
+			"%s / %s / %s",
+			scoreRule_.c_str(),
+			liveView_.value("play_mode_label", playModeLabel_).c_str(),
+			chart.value("title", chartTitle_).c_str());
+		for (const auto& player : players) {
+			double rate = player.value("battle_rate", -1.0);
+			if (rate < 0.0) {
+				const double maximum = std::max(
+					1.0,
+					player.value("battle_max", 1.0));
+				rate = player.value("battle_value", 0.0) / maximum;
+			}
+			const std::string label = player.value("name", "-")
+				+ "  EX " + std::to_string(player.value("exscore", 0))
+				+ " / BP " + std::to_string(player.value("minbp", 0))
+				+ " / COMBO " + std::to_string(player.value("max_combo", 0))
+				+ (player.value("finished", false) ? "  DONE" : "");
+			ImGui::ProgressBar(
+				static_cast<float>(std::clamp(rate, 0.0, 1.0)),
+				ImVec2(-1.0f, 24.0f),
+				label.c_str());
+		}
+		if (active_ && !config_.muteChat && matchChat_.is_array()) {
+			const int first = std::max(
+				0,
+				static_cast<int>(matchChat_.size()) - 2);
+			for (int index = first;
+				index < static_cast<int>(matchChat_.size());
+				++index) {
+				const auto& message = matchChat_[index];
+				ImGui::TextDisabled(
+					"%s: %s",
+					message.value("name", "-").c_str(),
+					message.value("text", "").c_str());
+			}
+		}
+		ImGui::End();
+	}
+
+	void DrawImGuiResult()
+	{
+		ImGui::SetNextWindowSize(ImVec2(610.0f, 300.0f), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowPos(ImVec2(350.0f, 210.0f), ImGuiCond_FirstUseEver);
+		if (!ImGui::Begin(
+				"Arena リザルト",
+				&resultVisible_,
+				ImGuiWindowFlags_AlwaysAutoResize)) {
+			ImGui::End();
+			return;
+		}
+		if (ratingDeltaVisible_) {
+			ImGui::SetWindowFontScale(1.8f);
+			ImGui::TextColored(
+				lastRatingDelta_ > 0
+					? ImVec4(0.32f, 1.0f, 0.48f, 1.0f)
+					: lastRatingDelta_ < 0
+						? ImVec4(1.0f, 0.32f, 0.32f, 1.0f)
+						: ImVec4(0.90f, 0.90f, 0.90f, 1.0f),
+				"RATING %+.0f",
+				lastRatingDelta_);
+			ImGui::SetWindowFontScale(1.0f);
+		}
+		const auto players = resultView_.value("players", nlohmann::json::array());
+		if (ImGui::BeginTable(
+				"##result-table",
+				6,
+				ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+			ImGui::TableSetupColumn("#");
+			ImGui::TableSetupColumn("PLAYER");
+			ImGui::TableSetupColumn("EX");
+			ImGui::TableSetupColumn("BP");
+			ImGui::TableSetupColumn("COMBO");
+			ImGui::TableSetupColumn("CLEAR");
+			ImGui::TableHeadersRow();
+			for (const auto& player : players) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", player.value("placement", 0));
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(player.value("name", "-").c_str());
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", player.value("exscore", 0));
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", player.value("minbp", 0));
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", player.value("max_combo", 0));
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(player.value("clear_label", "").c_str());
+			}
+			ImGui::EndTable();
+		}
+		if (ImGui::Button("閉じる")) {
+			resultVisible_ = false;
+			ratingDeltaVisible_ = false;
+		}
+		ImGui::End();
+	}
+
+	void DrawImGuiRoster()
+	{
+		ImGui::TextUnformatted("参加者");
+		ImGui::Separator();
+		const auto players = roomView_.value("players", nlohmann::json::array());
+		if (!players.is_array() || players.empty()) {
+			ImGui::TextDisabled(
+				roomCode_.empty()
+					? "ルーム未参加"
+					: "参加者情報を待っています");
+		}
+		else {
+			for (const auto& player : players) {
+				const bool host = player.value("host", false);
+				const bool participating = player.value("participating", true);
+				const bool ready = player.value("ready", false);
+				ImGui::PushID(player.value("player_id", 0));
+				ImGui::TextColored(
+					participating
+						? ImVec4(0.86f, 0.90f, 1.0f, 1.0f)
+						: ImVec4(0.60f, 0.62f, 0.68f, 1.0f),
+					"%s%s",
+					host ? "[HOST] " : "",
+					player.value("name", "-").c_str());
+				ImGui::TextDisabled(
+					"%s / %s",
+					participating ? "PLAYER" : "WATCH",
+					ready ? "READY" : "WAIT");
+				ImGui::Separator();
+				ImGui::PopID();
+			}
+		}
+		if (!roomCode_.empty()) {
+			ImGui::Text("ROOM %s", roomCode_.c_str());
+			if (ImGui::Button("コードをコピー")) CopyCurrentRoomCode();
+		}
+	}
+
+	void DrawImGuiLobby()
+	{
+		const bool queued = queueStatus_ != "idle"
+			&& queueStatus_ != "cancelled"
+			&& queueStatus_ != "";
+		ImGui::Text("レート %.0f / 対戦数 %d", arenaRating_, arenaMatchesPlayed_);
+		ImGui::TextDisabled("%s", status_.c_str());
+		ImGui::Separator();
+		if (ImGui::Button(queued ? "現在の待機・部屋から退出" : "レートArenaへ参加")) {
+			if (queued || !roomCode_.empty()) {
+				Send({{"type", "queue_cancel"}});
+				status_ = "leave requested";
+			}
+			else {
+				RequestRatedToggle();
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("状態を更新")) RequestStatus();
+		if (ImGui::Checkbox("CPU戦を許可", &config_.allowCpu)) WriteConfig();
+		if (ImGui::Checkbox("レート差制限なしを許可", &config_.unrestrictedRating)) WriteConfig();
+		if (ImGui::Checkbox("対戦後もルームに残る", &config_.stayInRoom)) {
+			WriteConfig();
+			if (!roomCode_.empty()) {
+				Send({
+					{"type", "room_stay"},
+					{"stay_in_room", config_.stayInRoom},
+				});
+			}
+		}
+		if (ImGui::Checkbox("チャットをローカルミュート", &config_.muteChat)) WriteConfig();
+		if (!roomCode_.empty()) {
+			ImGui::SeparatorText("現在のルーム");
+			if (ImGui::Button(roomReady_ ? "READYを解除" : "READY")) {
+				RequestRoomReady(!roomReady_);
+			}
+			ImGui::SameLine();
+			if (ImGui::Button(IsParticipating() ? "観戦へ移動" : "次戦から参加")) {
+				Send({
+					{"type", "room_participation"},
+					{"participating", !IsParticipating()},
+				});
+			}
+		}
+		if (reserved_ && phase_ == "options" && !optionReadySent_) {
+			ImGui::SeparatorText("現在の試合");
+			if (ImGui::Button("このオプションで準備完了")) SendOptionReady();
+		}
+		if (reserved_ && phase_ == "selecting" && matchMode_ != "ranked") {
+			ImGui::SeparatorText("選曲");
+			if (ImGui::Button("現在の譜面を選曲")) NominateCurrentChart();
+			ImGui::SameLine();
+			if (ImGui::Button("ランダム候補")) {
+				Send(MatchMessage("chart_nomination_skip"));
+				status_ = "random nomination submitted";
+			}
+		}
+		if (active_ && !forceEndVoteSent_) {
+			if (ImGui::Button("強制終了へ投票")) {
+				Send(MatchMessage("force_end_vote"));
+				forceEndVoteSent_ = true;
+			}
+		}
+	}
+
+	void DrawImGuiPublicRooms()
+	{
+		ImGui::InputTextWithHint(
+			"##room-code",
+			"部屋コード",
+			&pendingJoinCode_,
+			ImGuiInputTextFlags_CharsUppercase);
+		ImGui::InputText(
+			"パスワード",
+			&joinRoomPassword_,
+			ImGuiInputTextFlags_Password);
+		if (ImGui::Button("コードで参加")) {
+			const std::string code = NormalizeRoomCode(pendingJoinCode_);
+			if (!code.empty()) RequestRoomEntry(code, joinRoomPassword_);
+			else status_ = "invalid room code";
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("クリップボードから貼り付け")) {
+			pendingJoinCode_ = NormalizeRoomCode(ReadClipboardText());
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("一覧更新")) RequestStatus();
+		ImGui::SeparatorText("公開ルーム");
+		if (!publicRooms_.is_array() || publicRooms_.empty()) {
+			ImGui::TextDisabled("公開ルームはありません");
+			return;
+		}
+		if (ImGui::BeginTable(
+				"##public-rooms",
+				5,
+				ImGuiTableFlags_Borders
+					| ImGuiTableFlags_RowBg
+					| ImGuiTableFlags_ScrollY,
+				ImVec2(0.0f, 330.0f))) {
+			ImGui::TableSetupColumn("部屋");
+			ImGui::TableSetupColumn("コード");
+			ImGui::TableSetupColumn("人数");
+			ImGui::TableSetupColumn("ルール");
+			ImGui::TableSetupColumn("操作");
+			ImGui::TableHeadersRow();
+			int row = 0;
+			for (const auto& room : publicRooms_) {
+				if (!room.is_object()) continue;
+				ImGui::PushID(row++);
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(room.value("room_name", "Arena room").c_str());
+				ImGui::TableNextColumn();
+				ImGui::Text(
+					"%s%s",
+					room.value("room_code", "").c_str(),
+					room.value("locked", false) ? " 🔒" : "");
+				ImGui::TableNextColumn();
+				ImGui::Text("%d/8", room.value("member_count", 0));
+				ImGui::TableNextColumn();
+				ImGui::Text(
+					"%s / %s",
+					room.value("score_rule", "exscore").c_str(),
+					room.value("forced_gauge", "free").c_str());
+				ImGui::TableNextColumn();
+				if (ImGui::SmallButton("参加")) {
+					pendingJoinCode_ = NormalizeRoomCode(
+						room.value("room_code", ""));
+					if (!room.value("locked", false)) {
+						RequestRoomEntry(pendingJoinCode_, "");
+					}
+				}
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+	}
+
+	void DrawImGuiRoomSettings()
+	{
+		const bool host = IsRoomHost();
+		ImGui::TextDisabled(
+			roomCode_.empty()
+				? "新規ルームの設定"
+				: host
+					? "ホスト設定（次の試合から反映）"
+					: "ホストのみ変更できます");
+		ImGui::BeginDisabled(!roomCode_.empty() && !host);
+		ImGui::InputText("部屋名", &config_.room.roomName);
+		if (ImGui::InputText(
+				"部屋パスワード",
+				&pendingRoomPassword_,
+				ImGuiInputTextFlags_Password)) {
+			roomPasswordDirty_ = true;
+		}
+		ComboString(
+			"勝敗ルール",
+			config_.room.scoreRule,
+			{"exscore", "minbp", "max_combo"});
+		ComboString(
+			"強制ゲージ",
+			config_.room.forcedGauge,
+			{"free", "normal", "hard", "exhard", "hazard"});
+		ComboString(
+			"選曲範囲",
+			config_.room.chartScope,
+			{"official", "free"});
+		ComboString(
+			"選曲者",
+			config_.room.nominationPolicy,
+			{"all", "host", "rotate"});
+		ComboString(
+			"試合形式",
+			config_.room.seriesFormat,
+			{"single", "all_picks", "first_to"});
+		ImGui::SliderInt(
+			"選曲時間",
+			&config_.room.nominationSeconds,
+			10,
+			180,
+			"%d秒");
+		ImGui::SliderInt(
+			"OP選択時間",
+			&config_.room.optionSeconds,
+			5,
+			60,
+			"%d秒");
+		ImGui::SliderInt(
+			"曲間待機",
+			&config_.room.intermissionSeconds,
+			0,
+			60,
+			"%d秒");
+		if (config_.room.seriesFormat == "first_to") {
+			ImGui::SliderInt(
+				"先取本数",
+				&config_.room.firstToWins,
+				2,
+				5);
+		}
+		ImGui::Checkbox("公開・観戦可能", &config_.room.spectatorPublic);
+		ImGui::Checkbox("ホストの左右OP・FLIPを全員へ強制", &config_.room.forceHostOption);
+		if (roomCode_.empty()) {
+			if (ImGui::Button("この設定でルーム作成")) {
+				WriteConfig();
+				RequestRoomEntry("", pendingRoomPassword_);
+			}
+		}
+		else if (host && ImGui::Button("設定を反映")) {
+			WriteConfig();
+			RequestRoomSettings();
+		}
+		ImGui::EndDisabled();
+
+		if (!roomCode_.empty() && host) {
+			ImGui::SeparatorText("メンバー管理");
+			const auto players = roomView_.value("players", nlohmann::json::array());
+			const std::string preview = TargetPlayerLabel();
+			if (ImGui::BeginCombo("対象", preview.c_str())) {
+				for (int index = 0;
+					players.is_array() && index < static_cast<int>(players.size());
+					++index) {
+					const auto& player = players[index];
+					const bool selected = targetPlayerIndex_ == index;
+					if (ImGui::Selectable(
+							player.value("name", "-").c_str(),
+							selected)) {
+						targetPlayerIndex_ = index;
+					}
+				}
+				ImGui::EndCombo();
+			}
+			if (ImGui::Button("キック")) SendRoomPlayerAction("room_kick");
+			ImGui::SameLine();
+			if (ImGui::Button("ホスト移譲")) SendRoomPlayerAction("room_transfer_host");
+			ImGui::SameLine();
+			if (ImGui::Button("選曲者に指定")) SendRoomPlayerAction("room_set_selector");
+			if (ImGui::Button("ルーム解体")) Send({{"type", "room_disband"}});
+		}
+	}
+
+	static void DrawChatHistory(const char* id, const nlohmann::json& messages)
+	{
+		ImGui::BeginChild(id, ImVec2(0.0f, 185.0f), ImGuiChildFlags_Borders);
+		if (messages.is_array()) {
+			for (const auto& message : messages) {
+				ImGui::TextWrapped(
+					"%s: %s",
+					message.value("name", "-").c_str(),
+					message.value("text", "").c_str());
+			}
+		}
+		ImGui::EndChild();
+	}
+
+	void DrawImGuiChat()
+	{
+		if (config_.muteChat) {
+			ImGui::TextColored(
+				ImVec4(1.0f, 0.78f, 0.35f, 1.0f),
+				"ローカルミュート中です");
+		}
+		ImGui::SeparatorText("公開ロビーチャット（最新20件）");
+		DrawChatHistory("##lobby-chat", lobbyChat_);
+		const bool lobbyEnter = ImGui::InputTextWithHint(
+			"##lobby-chat-input",
+			"公開ロビーへ送信",
+			&lobbyChatInput_,
+			ImGuiInputTextFlags_EnterReturnsTrue);
+		ImGui::SameLine();
+		if (ImGui::Button("送信##lobby") || lobbyEnter) {
+			if (!lobbyChatInput_.empty()) {
+				Send({
+					{"type", "lobby_chat_send"},
+					{"text", lobbyChatInput_.substr(0, 200)},
+				});
+				lobbyChatInput_.clear();
+			}
+		}
+		ImGui::SeparatorText("ルーム／対戦チャット");
+		DrawChatHistory("##match-chat", matchChat_);
+		const bool roomEnter = ImGui::InputTextWithHint(
+			"##match-chat-input",
+			"ルーム・対戦相手へ送信",
+			&roomChatInput_,
+			ImGuiInputTextFlags_EnterReturnsTrue);
+		ImGui::SameLine();
+		if (ImGui::Button("送信##room") || roomEnter) {
+			SendRoomChatInput();
+		}
+	}
+
+	void SendRoomChatInput()
+	{
+		if (roomChatInput_.empty() || (roomCode_.empty() && !reserved_)) return;
+		nlohmann::json chat = {
+			{"type", "chat_send"},
+			{"text", roomChatInput_.substr(0, 200)},
+		};
+		if (!matchId_.empty()) chat["match_id"] = matchId_;
+		if (!roomCode_.empty()) chat["room_code"] = roomCode_;
+		Send(chat);
+		roomChatInput_.clear();
+	}
+
+	void DrawImGuiManual()
+	{
+		const auto sections = manualView_.value("sections", nlohmann::json::array());
+		if (!sections.is_array() || sections.empty()) {
+			ImGui::TextDisabled("マニュアルを取得できていません。");
+			if (ImGui::Button("サーバーから再取得")) RequestManual();
+			return;
+		}
+		manualSection_ = std::clamp(
+			manualSection_,
+			0,
+			static_cast<int>(sections.size()) - 1);
+		if (ImGui::Button("< 前")) AdjustManualSection(-1);
+		ImGui::SameLine();
+		if (ImGui::Button("次 >")) AdjustManualSection(1);
+		ImGui::SameLine();
+		if (ImGui::Button("再取得")) RequestManual();
+		const auto& section = sections[manualSection_];
+		ImGui::SeparatorText(section.value("title", "Arena").c_str());
+		ImGui::BeginChild(
+			"##manual-body",
+			ImVec2(0.0f, 0.0f),
+			ImGuiChildFlags_Borders);
+		for (const auto& item : section.value("items", nlohmann::json::array())) {
+			if (!item.is_string()) continue;
+			ImGui::BulletText("%s", item.get_ref<const std::string&>().c_str());
+		}
+		ImGui::EndChild();
+	}
+#endif
 
 	int DrawBattle(const int startY) const
 	{
@@ -2191,7 +2764,7 @@ private:
 		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 225);
 		DrawBox(8, startY, 862, startY + height, GetColor(16, 14, 20), TRUE);
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 255);
-		DrawString(16, startY + 7, "Arena result (F9 > MAIN > Close result)", GetColor(255, 220, 170));
+		DrawString(16, startY + 7, "Arena result", GetColor(255, 220, 170));
 		if (ratingDeltaVisible_) {
 			DrawFormatString(
 				560,
@@ -2434,6 +3007,11 @@ private:
 	std::string lastTransportError_;
 	std::string pendingJoinCode_;
 	std::string pendingRoomPassword_;
+#ifdef _WIN32
+	std::string joinRoomPassword_;
+	std::string lobbyChatInput_;
+	std::string roomChatInput_;
+#endif
 	int chartTotalNotes_{};
 	int playMode_{};
 	int playOption_{};
@@ -2455,7 +3033,7 @@ private:
 	bool roomPasswordDirty_{};
 	bool resultVisible_{};
 	bool ratingDeltaVisible_{};
-	bool panelOpen_{};
+	bool panelOpen_{true};
 	bool overlayVisible_{true};
 	nlohmann::json queueView_{nlohmann::json::object()};
 	nlohmann::json roomView_{nlohmann::json::object()};
@@ -2479,6 +3057,7 @@ std::unique_ptr<Client> g_client;
 
 void Initialize(game* gameState)
 {
+	imgui_overlay::Initialize();
 	g_client = std::make_unique<Client>(gameState);
 }
 
@@ -2486,6 +3065,7 @@ void Shutdown()
 {
 	if (g_client) g_client->Shutdown();
 	g_client.reset();
+	imgui_overlay::Shutdown();
 }
 
 void Tick(game* gameState, sqlite3* songDatabase)
