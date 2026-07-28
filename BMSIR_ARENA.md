@@ -1,8 +1,9 @@
 # BMS-IR Arena for OpenLR2
 
-Status: source-preview client for Issue
+Status: controlled direct-link tester client for Issue
 [`BMS-Mania/IR#636`](https://github.com/BMS-Mania/IR/issues/636). It has not
-completed Windows real-client acceptance and is not a public BMS-IR release.
+completed Windows real-client acceptance and is not listed as a general public
+BMS-IR download.
 
 This fork integrates the BMS-IR Arena protocol directly into OpenLR2. It does
 not load or copy code from LR2ArenaEx. LR2ArenaEx was used only as a reference
@@ -11,19 +12,25 @@ client.
 
 ## Setup
 
-1. Configure OpenLR2's normal LR2IR connection for BMS-IR. Use the numeric
+1. Download the ZIP matching the OpenLR2 installation architecture (`x64` or
+   `x86`) and extract it.
+2. Close OpenLR2. Back up the existing `OpenLR2_x64.exe` or
+   `OpenLR2_x86.exe`, then copy the tester executable into the OpenLR2
+   installation directory beside `LR2files`.
+3. Configure OpenLR2's normal LR2IR connection for BMS-IR. Use the numeric
    BMS-IR player ID and the LR2 game-auth token from BMS-IR in the normal
    LR2IR fields.
-2. Copy `BMSIR_ARENA.example.json` to
+4. Copy `BMSIR_ARENA.example.json` to
    `LR2files/Config/bmsir-arena.json`.
-3. If OpenLR2 did not obtain the numeric IR ID during login, set `player_id`
+5. If OpenLR2 did not obtain the numeric IR ID during login, set `player_id`
    in that JSON. Do not put a password, token, or passmd5 in the Arena JSON.
-4. Start the Arena-enabled OpenLR2 build. On music select, press `Insert` to
+6. Start the Arena-enabled OpenLR2 build. On music select, press `Insert` to
    enter or leave rated matchmaking. During the option-lock phase, choose the
    lane option in OpenLR2 and press `Insert` again to READY.
 
-The overlay shows connection, queue, match, and chart state. This first
-source-preview automatically delegates its nomination slot to server random.
+To restore ordinary OpenLR2, close the game and restore the backed-up
+executable. The overlay shows connection, queue, match, and chart state. This
+tester build automatically delegates its nomination slot to server random.
 
 ## Implemented lifecycle
 
@@ -60,11 +67,11 @@ For a failed Windows test, reproduce once and attach
 OpenLR2 build architecture, Windows version, scene shown on screen, and whether
 ordinary LR2IR login succeeded.
 
-## Current source-preview limits
+## Current tester-preview limits
 
 - Windows x64 and x86 compile/protocol-test CI passes. Windows 10/11
   real-client lifecycle and gameplay testing is still pending.
-- CI outputs are unsigned source previews, not public BMS-IR releases.
+- CI outputs are unsigned tester previews, not general public BMS-IR releases.
 - Server-random nomination is implemented; in-client candidate-folder
   nomination and room management are not yet implemented.
 - Reconnecting a match that is already playing fails closed by forfeiting;
@@ -79,5 +86,6 @@ ordinary LR2IR login succeeded.
   OpenLR2 restarts the synchronized sequence for 2P so both sides match the
   independently seeded oraja-side layouts. RANDOM is clamped to NORMAL for
   other key modes; MIRROR remains available.
-- Production allowlists, downloadable artifacts, rollout/restart, changelog,
-  and announcements are outside Issue #636.
+- The reviewed build may be installed behind exact direct URLs and private
+  server allowlists for acceptance testing. Public download-page listing,
+  changelog publication, and announcements remain outside this preview.
