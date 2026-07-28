@@ -217,7 +217,13 @@ public:
 		const int actionColor = deadline
 			? CountdownColor(seconds)
 			: GetColor(190, 220, 255);
-		DrawString(16, 56, action.c_str(), actionColor);
+			DrawExtendString(
+				16,
+				52,
+				1.2,
+				1.2,
+				action.c_str(),
+				actionColor);
 		if (deadline) {
 			DrawFormatString(650, 52, actionColor, "%lld sec", seconds);
 		}
@@ -673,6 +679,7 @@ private:
 			if (!IsCurrentMatchMessage(message)) return;
 			ReceiveRules(message);
 			phase_ = "options";
+			playModeLabel_ = message.value("play_mode_label", playModeLabel_);
 			optionDeadline_ = message.value("deadline", 0.0);
 			optionReadySent_ = message.value("ready", false);
 			status_ = optionReadySent_
@@ -687,6 +694,7 @@ private:
 			randomSeed_ = message.value("random_seed", randomSeed_);
 			playOption_ = message.value("play_option", playOption_);
 			playMode_ = message.value("play_mode", playMode_);
+			playModeLabel_ = message.value("play_mode_label", playModeLabel_);
 			loadDeadline_ = message.value("load_deadline", 0.0);
 			active_ = true;
 			arenaChart_ = true;
@@ -967,6 +975,7 @@ private:
 		chartTitle_ = chart.value("title", "");
 		chartTotalNotes_ = chart.value("totalnotes", 0);
 		randomSeed_ = message.value("random_seed", 0L);
+		playModeLabel_ = message.value("play_mode_label", "");
 		SONGDATA song{};
 		InitSongData(&song);
 		chartAvailable_ = IsMd5(chartHash_)
@@ -1454,6 +1463,7 @@ private:
 		randomSeed_ = 0;
 		chartHash_.clear();
 		chartTitle_.clear();
+		playModeLabel_.clear();
 		chartTotalNotes_ = 0;
 		playMode_ = 0;
 		playOption_ = 0;
@@ -1527,6 +1537,7 @@ private:
 					std::string("Participating: ") + (IsParticipating() ? "ON" : "SPECTATE"),
 					"Close result",
 					"Vote to force-end current chart (End during play)",
+					"Copy current room code",
 					"Refresh Arena status",
 				};
 				break;
@@ -1542,6 +1553,7 @@ private:
 				}
 				if (items.empty()) items.push_back("No public rooms (refresh)");
 				items.push_back("Join by room code");
+				items.push_back("Join by clipboard room code");
 				break;
 			case 2:
 				items = {
@@ -1728,6 +1740,9 @@ private:
 				}
 				break;
 			case 8:
+				CopyCurrentRoomCode();
+				break;
+			case 9:
 				RequestStatus();
 				break;
 			default:
@@ -1752,6 +1767,16 @@ private:
 		}
 		if (menuIndex_ == roomCount) {
 			StartTextInput(TextTarget::JoinRoomCode, "", 6);
+			return;
+		}
+		if (menuIndex_ == roomCount + 1) {
+			const std::string code = NormalizeRoomCode(ReadClipboardText());
+			if (code.empty()) {
+				status_ = "clipboard does not contain a room code";
+				return;
+			}
+			pendingJoinCode_ = code;
+			StartTextInput(TextTarget::JoinRoomPassword, "", 64);
 		}
 	}
 
@@ -1959,6 +1984,29 @@ private:
 		textTarget_ = TextTarget::None;
 	}
 
+	static std::string ReadClipboardText()
+	{
+		char buffer[2048]{};
+		if (GetClipboardText(buffer, static_cast<int>(sizeof(buffer))) < 0) {
+			return {};
+		}
+		return ansi2utf(buffer, 932);
+	}
+
+	void CopyCurrentRoomCode()
+	{
+		if (roomCode_.empty()) {
+			status_ = "not in a room";
+			return;
+		}
+		if (SetClipboardText(roomCode_.c_str()) == 0) {
+			status_ = "room code copied: " + roomCode_;
+		}
+		else {
+			status_ = "room code copy failed";
+		}
+	}
+
 	std::tuple<std::string, long long, bool> PhaseActionAndCountdown() const
 	{
 		double deadline = 0.0;
@@ -1997,6 +2045,10 @@ private:
 		}
 		else if (queueStatus_ == "queued") action = "Waiting for Arena match";
 		else action = "Open F9 controls to enter Arena or a room";
+		if (!playModeLabel_.empty()
+			&& (reserved_ || active_ || resultVisible_)) {
+			action += " / " + playModeLabel_;
+		}
 		return {
 			action,
 			CountdownSeconds(deadline, ServerNow()),
@@ -2244,6 +2296,7 @@ private:
 	std::string roomCode_;
 	std::string chartHash_;
 	std::string chartTitle_;
+	std::string playModeLabel_;
 	std::string forcedGauge_{"free"};
 	std::string scoreRule_{"exscore"};
 	std::string matchMode_{"ranked"};

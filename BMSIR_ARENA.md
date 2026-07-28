@@ -57,7 +57,7 @@ Enter.
   rating by +1/0/-1.
 - Public/locked room creation and joining, room names, host transfer, kick,
   selector changes, participant/spectator switching, READY, room retention,
-  and disband.
+  disband, and room-code clipboard copy/paste.
 - EX SCORE, LOWEST BP, and MAX COMBO room rules; forced gauge; official/free
   chart scope; all/host/rotating nomination; single, all-picks, and first-to
   series.
