@@ -533,8 +533,8 @@ private:
 				{"body_version", openlr2::versionName},
 				{"build_hash", OPENLR2_ARENA_BUILD_HASH},
 				{"arena_enabled", true},
-				{"client_flavor", kClientFlavor},
-				{"ruleset_profile", kRulesetProfile},
+				{"client_flavor", std::string(kClientFlavor)},
+				{"ruleset_profile", std::string(kRulesetProfile)},
 				{"server_cpu_v1", true},
 				{"server_cpu_catalog_v1", true},
 			};
@@ -1313,7 +1313,7 @@ private:
 			{"intermission_seconds", config_.room.intermissionSeconds},
 			{"series_format", config_.room.seriesFormat},
 			{"first_to_wins", config_.room.firstToWins},
-			{"ruleset_profile", kRulesetProfile},
+			{"ruleset_profile", std::string(kRulesetProfile)},
 			{"spectator_public", config_.room.spectatorPublic},
 			{"force_host_option", config_.room.forceHostOption},
 		});
