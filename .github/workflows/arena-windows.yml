@@ -62,7 +62,7 @@ jobs:
       - name: Stage direct-test package
         shell: pwsh
         run: |
-          $version = "0.1.1-dev-openlr2"
+          $version = "0.2.0-dev-openlr2"
           $packageName = "OpenLR2-BMSIR-Arena-$version-${{ matrix.arch }}"
           $packageRoot = "package/${{ matrix.arch }}/$packageName"
           New-Item -ItemType Directory -Force -Path $packageRoot | Out-Null
@@ -78,6 +78,6 @@ jobs:
       - name: Upload unsigned direct-test package
         uses: actions/upload-artifact@v4
         with:
-          name: OpenLR2-BMSIR-Arena-0.1.1-dev-openlr2-${{ matrix.arch }}-unsigned
+          name: OpenLR2-BMSIR-Arena-0.2.0-dev-openlr2-${{ matrix.arch }}-unsigned
           if-no-files-found: error
-          path: package/OpenLR2-BMSIR-Arena-0.1.1-dev-openlr2-${{ matrix.arch }}.zip
+          path: package/OpenLR2-BMSIR-Arena-0.2.0-dev-openlr2-${{ matrix.arch }}.zip
