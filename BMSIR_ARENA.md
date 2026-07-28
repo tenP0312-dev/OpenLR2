@@ -8,7 +8,8 @@ BMS-IR download.
 This fork integrates the BMS-IR Arena protocol directly into OpenLR2. It does
 not load or copy code from LR2ArenaEx. LR2ArenaEx was used only as a reference
 for the general idea of integrating Arena behavior with an LR2-compatible
-client.
+client. The new window is independently implemented with Dear ImGui; bundled
+third-party notices are in `THIRD_PARTY_NOTICES.md`.
 
 ## Setup
 

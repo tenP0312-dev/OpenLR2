@@ -71,6 +71,7 @@ jobs:
             "$packageRoot/${{ matrix.executable }}"
           Copy-Item BMSIR_ARENA.md "$packageRoot/README.md"
           Copy-Item BMSIR_ARENA.example.json "$packageRoot/BMSIR_ARENA.example.json"
+          Copy-Item THIRD_PARTY_NOTICES.md "$packageRoot/THIRD_PARTY_NOTICES.md"
           Compress-Archive `
             -Path "$packageRoot/*" `
             -DestinationPath "package/$packageName.zip"
