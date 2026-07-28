@@ -17,6 +17,9 @@ find_package(TIFF REQUIRED)
 find_package(Vorbis CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(unofficial-theora CONFIG REQUIRED)
+if(WIN32)
+    find_package(imgui CONFIG REQUIRED)
+endif()
 
 add_library(SQLite STATIC dep/sqlite/sqlite3.c)
 target_include_directories(
@@ -262,6 +265,7 @@ add_library(
     LR2/En_xml.cpp
     LR2/LR2_audio.cpp
     LR2/BMSIR_arena.cpp
+    LR2/BMSIR_arena_imgui.cpp
     LR2/BMSIR_arena_log.cpp
     LR2/BMSIR_arena_protocol.cpp
     LR2/BMSIR_arena_transport.cpp
@@ -303,7 +307,15 @@ target_link_libraries(
 
 if(WIN32)
     target_compile_definitions(OpenLR2Lib PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN)
-    target_link_libraries(OpenLR2Lib PUBLIC winhttp.lib winmm.lib)
+    target_link_libraries(
+        OpenLR2Lib
+        PUBLIC
+            imgui::imgui
+            d3d9.lib
+            d3d11.lib
+            winhttp.lib
+            winmm.lib
+    )
 endif()
 
 set(OPENLR2_ARENA_BUILD_HASH "" CACHE STRING "Exact reviewed Arena source commit")

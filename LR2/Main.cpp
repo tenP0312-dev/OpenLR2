@@ -2137,9 +2137,11 @@ int main(int argc, char** argv) {
 					for (int i = 0; i < 10; i++) {
 						gs.skstruct.ImageFonts[i].filepath[0] = 0;
 					}
+					openlr2::arena::PrepareGraphicsReset();
 					SetGraphMode(resX, resY, (gs.config.system.highcolor == 0 ? 32 : 16), GetRefreshRate()); //redundant?
 					SetWaitVSyncFlag(0); //VSYNC
 					ChangeWindowMode(gs.config.system.screenmode);
+					openlr2::arena::CompleteGraphicsReset();
 					SetWaitVSyncFlag(0); //VSYNC
 					SetDrawScreen(DX_SCREEN_BACK);
 					LoadSceneG(&gs, &gs.skstruct, SKINTYPE_SELECT);
@@ -2182,9 +2184,11 @@ int main(int argc, char** argv) {
 					for (int i = 0; i < 10; i++) {
 						gs.skstruct.ImageFonts[i].filepath[0] = 0;
 					}
+					openlr2::arena::PrepareGraphicsReset();
 					SetGraphMode(resX, resY, (gs.config.system.highcolor == 0 ? 32 : 16), GetRefreshRate()); //redundant?
 					SetWaitVSyncFlag(0); //VSYNC
 					ChangeWindowMode(gs.config.system.screenmode);
+					openlr2::arena::CompleteGraphicsReset();
 					SetWaitVSyncFlag(0); //VSYNC
 					SetDrawScreen(DX_SCREEN_BACK);
 					LoadSceneG(&gs, &gs.skstruct, SKINTYPE_SELECT);
@@ -2420,9 +2424,11 @@ int main(int argc, char** argv) {
 			for (int i = 0; i < 10; i++) {
 				gs.skstruct.ImageFonts[i].filepath[0] = 0;
 			}
+			openlr2::arena::PrepareGraphicsReset();
 			SetGraphMode(resX, resY, (gs.config.system.highcolor == 0 ? 32 : 16), GetRefreshRate()); //redundant?
 			SetWaitVSyncFlag(0); //VSYNC
 			ApplyScreenMode(gs.config.system.screenmode);
+			openlr2::arena::CompleteGraphicsReset();
 			SetWaitVSyncFlag(0); //VSYNC
 			SetDrawScreen(DX_SCREEN_BACK);
 			for (int i = 0; i < 900; i++) {
@@ -2450,7 +2456,9 @@ int main(int argc, char** argv) {
 			for (int i = 0; i < 10; i++) {
 				gs.skstruct.ImageFonts[i].filepath[0] = 0;
 			}
+			openlr2::arena::PrepareGraphicsReset();
 			SetGraphMode(resX, resY, (gs.config.system.highcolor == 0 ? 32 : 16), GetRefreshRate()); //redundant?
+			openlr2::arena::CompleteGraphicsReset();
 			SetDrawScreen(DX_SCREEN_BACK);
 			LoadSceneG(&gs, &gs.skstruct, SKINTYPE_SELECT);
 			SetWaitVSyncFlag(0); //VSYNC
