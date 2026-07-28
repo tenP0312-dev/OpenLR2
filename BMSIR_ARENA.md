@@ -62,7 +62,8 @@ ordinary LR2IR login succeeded.
 
 ## Current source-preview limits
 
-- Windows 10/11 x64 and x86 builds still require CI and real-client testing.
+- Windows x64 and x86 compile/protocol-test CI passes. Windows 10/11
+  real-client lifecycle and gameplay testing is still pending.
 - CI outputs are unsigned source previews, not public BMS-IR releases.
 - Server-random nomination is implemented; in-client candidate-folder
   nomination and room management are not yet implemented.
