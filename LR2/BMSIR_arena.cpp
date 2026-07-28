@@ -193,6 +193,9 @@ public:
 			game_->KeyInput.mouse_buttonW = 0;
 			game_->KeyInput.mouse_button4 = 0;
 			game_->KeyInput.mousewheel = 0;
+			if (imgui_overlay::WantsKeyboardCapture()) {
+				std::fill_n(game_->KeyInput.inputID, 2048, 0);
+			}
 		}
 		SendLiveIfDue();
 		if (!transport_.Running()

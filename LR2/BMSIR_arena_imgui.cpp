@@ -203,6 +203,11 @@ bool WantsMouseCapture()
 	return g_initialized && g_interactive && ImGui::GetIO().WantCaptureMouse;
 }
 
+bool WantsKeyboardCapture()
+{
+	return g_initialized && g_interactive && ImGui::GetIO().WantCaptureKeyboard;
+}
+
 } // namespace openlr2::arena::imgui_overlay
 
 #else
@@ -215,6 +220,7 @@ bool BeginFrame(bool) { return false; }
 void EndFrame() {}
 bool Available() { return false; }
 bool WantsMouseCapture() { return false; }
+bool WantsKeyboardCapture() { return false; }
 
 } // namespace openlr2::arena::imgui_overlay
 

@@ -8,5 +8,6 @@ bool BeginFrame(bool interactive);
 void EndFrame();
 bool Available();
 bool WantsMouseCapture();
+bool WantsKeyboardCapture();
 
 } // namespace openlr2::arena::imgui_overlay
