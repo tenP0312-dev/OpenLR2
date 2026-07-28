@@ -6,6 +6,7 @@
     "libtheora",
     "libtheora",
     "libvorbis",
+    "nlohmann-json",
     "opus",
     "opusfile",
     "tiff",

@@ -8,6 +8,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 find_package(JPEG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 find_package(Ogg CONFIG REQUIRED)
 find_package(Opus CONFIG REQUIRED)
 find_package(OpusFile CONFIG REQUIRED)
@@ -18,7 +19,11 @@ find_package(ZLIB REQUIRED)
 find_package(unofficial-theora CONFIG REQUIRED)
 
 add_library(SQLite STATIC dep/sqlite/sqlite3.c)
-target_include_directories(SQLite PUBLIC dep/sqlite)
+target_include_directories(
+    SQLite
+    PRIVATE dep/sqlite
+    PUBLIC dep/sqlite-include
+)
 
 add_library(
     TinyXML
@@ -256,6 +261,10 @@ add_library(
     LR2/En_value.cpp
     LR2/En_xml.cpp
     LR2/LR2_audio.cpp
+    LR2/BMSIR_arena.cpp
+    LR2/BMSIR_arena_log.cpp
+    LR2/BMSIR_arena_protocol.cpp
+    LR2/BMSIR_arena_transport.cpp
     LR2/LR2_bmsload.cpp
     LR2/LR2_configsave.cpp
     LR2/LR2_customir.cpp
@@ -289,13 +298,31 @@ set_target_properties(OpenLR2Lib PROPERTIES CXX_STANDARD 23)
 target_include_directories(OpenLR2Lib PUBLIC dep)
 target_link_libraries(
     OpenLR2Lib
-    PUBLIC DxLib FMOD SQLite TinyXML md5
+    PUBLIC DxLib FMOD SQLite TinyXML md5 nlohmann_json::nlohmann_json
 )
 
 if(WIN32)
     target_compile_definitions(OpenLR2Lib PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN)
-    target_link_libraries(OpenLR2Lib PUBLIC winmm.lib)
+    target_link_libraries(OpenLR2Lib PUBLIC winhttp.lib winmm.lib)
 endif()
+
+set(OPENLR2_ARENA_BUILD_HASH "" CACHE STRING "Exact reviewed Arena source commit")
+if(NOT OPENLR2_ARENA_BUILD_HASH)
+    execute_process(
+        COMMAND git rev-parse HEAD
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE OPENLR2_ARENA_BUILD_HASH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+endif()
+if(NOT OPENLR2_ARENA_BUILD_HASH)
+    set(OPENLR2_ARENA_BUILD_HASH "unknown")
+endif()
+target_compile_definitions(
+    OpenLR2Lib
+    PRIVATE OPENLR2_ARENA_BUILD_HASH="${OPENLR2_ARENA_BUILD_HASH}"
+)
 
 if(MSVC)
     target_compile_options(OpenLR2Lib PUBLIC /utf-8)
@@ -348,3 +375,19 @@ set_target_properties(
     ExampleIR
     PROPERTIES OUTPUT_NAME "ExampleIR${IR_CONF_SUFFIX}${IR_ARCH_SUFFIX}"
 )
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(
+        BMSIRArenaProtocolTest
+        tests/BMSIR_arena_protocol_test.cpp
+        LR2/BMSIR_arena_protocol.cpp
+    )
+    set_target_properties(BMSIRArenaProtocolTest PROPERTIES CXX_STANDARD 23)
+    target_include_directories(BMSIRArenaProtocolTest PRIVATE LR2)
+    target_link_libraries(
+        BMSIRArenaProtocolTest
+        PRIVATE nlohmann_json::nlohmann_json
+    )
+    add_test(NAME BMSIRArenaProtocolTest COMMAND BMSIRArenaProtocolTest)
+endif()

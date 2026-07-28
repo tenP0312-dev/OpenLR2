@@ -1,4 +1,5 @@
 #include "Scene05_Result.h"
+#include "BMSIR_arena.h"
 #include "LR2.h"
 #include "LR2_customir.h"
 #include "Scenes.h"
@@ -311,7 +312,8 @@ int ProcI_Result(game *g) {
 				RecordFadeout(&g->audio, g->audio.aviTimer - 500.0, 500.0);
 			}
 
-			if ( (g->KeyInput.p1_buttonInput[1] == 2 || g->KeyInput.p1_buttonInput[3] == 2 ||	g->KeyInput.p1_buttonInput[5] == 2 || g->KeyInput.p1_buttonInput[7] == 2 ||
+			if ( !openlr2::arena::BlocksQuickRestart()
+				&& (g->KeyInput.p1_buttonInput[1] == 2 || g->KeyInput.p1_buttonInput[3] == 2 ||	g->KeyInput.p1_buttonInput[5] == 2 || g->KeyInput.p1_buttonInput[7] == 2 ||
 				g->KeyInput.p2_buttonInput[1] == 2 || g->KeyInput.p2_buttonInput[3] == 2 || g->KeyInput.p2_buttonInput[5] == 2 || g->KeyInput.p2_buttonInput[7] == 2) 
 				&& (g->KeyInput.p1_buttonInput[2] == 2 || g->KeyInput.p1_buttonInput[4] == 2 || g->KeyInput.p1_buttonInput[6] == 2 ||
 					g->KeyInput.p2_buttonInput[2] == 2 || g->KeyInput.p2_buttonInput[4] == 2 || g->KeyInput.p2_buttonInput[6] == 2) 

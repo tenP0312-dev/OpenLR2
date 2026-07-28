@@ -1,0 +1,24 @@
+{
+  "enabled": true,
+  "server": "wss://www.bms-ir.org/new/arena/ws/client",
+  "player_id": 0,
+  "show_overlay": true,
+  "allow_cpu": true,
+  "unrestricted_rating": false,
+  "stay_in_room": true,
+  "mute_chat": false,
+  "room_defaults": {
+    "room_name": "OpenLR2 Arena room",
+    "score_rule": "exscore",
+    "forced_gauge": "free",
+    "chart_scope": "official",
+    "nomination_policy": "all",
+    "nomination_seconds": 60,
+    "option_seconds": 10,
+    "intermission_seconds": 0,
+    "series_format": "single",
+    "first_to_wins": 2,
+    "spectator_public": true,
+    "force_host_option": false
+  }
+}
