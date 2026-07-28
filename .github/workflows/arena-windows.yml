@@ -25,6 +25,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
 
       - name: Configure
         shell: pwsh
@@ -40,6 +43,7 @@ jobs:
             -A "${{ matrix.generator_arch }}" `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET="${{ matrix.triplet }}" `
+            -DOPENLR2_ARENA_BUILD_HASH="${{ github.event.pull_request.head.sha }}" `
             -DBUILD_TESTING=ON
 
       - name: Build
@@ -55,13 +59,25 @@ jobs:
           -C RelWithDebInfo
           --output-on-failure
 
-      - name: Upload unsigned source-preview
+      - name: Stage direct-test package
+        shell: pwsh
+        run: |
+          $version = "0.1.1-dev-openlr2"
+          $packageName = "OpenLR2-BMSIR-Arena-$version-${{ matrix.arch }}"
+          $packageRoot = "package/${{ matrix.arch }}/$packageName"
+          New-Item -ItemType Directory -Force -Path $packageRoot | Out-Null
+          Copy-Item `
+            "build/${{ matrix.arch }}/RelWithDebInfo/${{ matrix.executable }}" `
+            "$packageRoot/${{ matrix.executable }}"
+          Copy-Item BMSIR_ARENA.md "$packageRoot/README.md"
+          Copy-Item BMSIR_ARENA.example.json "$packageRoot/BMSIR_ARENA.example.json"
+          Compress-Archive `
+            -Path "$packageRoot/*" `
+            -DestinationPath "package/$packageName.zip"
+
+      - name: Upload unsigned direct-test package
         uses: actions/upload-artifact@v4
         with:
-          name: OpenLR2-BMSIR-Arena-${{ matrix.arch }}-unsigned
+          name: OpenLR2-BMSIR-Arena-0.1.1-dev-openlr2-${{ matrix.arch }}-unsigned
           if-no-files-found: error
-          path: |
-            build/${{ matrix.arch }}/RelWithDebInfo/${{ matrix.executable }}
-            build/${{ matrix.arch }}/RelWithDebInfo/OpenLR2_*.pdb
-            BMSIR_ARENA.md
-            BMSIR_ARENA.example.json
+          path: package/OpenLR2-BMSIR-Arena-0.1.1-dev-openlr2-${{ matrix.arch }}.zip

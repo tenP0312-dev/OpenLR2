@@ -1,4 +1,6 @@
 ﻿#include "LR2_bmsload.h"
+#include "BMSIR_arena.h"
+#include "BMSIR_arena_protocol.h"
 #include "Engine.h"
 #include "LR2_replay.h"
 #include "Unrandomizer_SeedMap5K.h"
@@ -3296,6 +3298,12 @@ int ParseBmsFile(gameplay *gp, CSTR filename, AUDIO *aud, ConfigStruct* cfg, BMS
 		noteRandomTable[1][i] = i + 10;
 	}
 	for (int p : { PLAYER_1, PLAYER_2 }) {
+		if (openlr2::arena::ShouldRestartDpRandomSequence(
+				openlr2::arena::IsArenaPlayActive(),
+				meta->keymode,
+				p)) {
+			SRand(gp->randomseed);
+		}
 		if (cfg->play.random[p] == OPTION_RANDOM_MIRROR) {
 			if (meta->keymode == 7 || meta->keymode == 14) {
 				if (cfg->play.randSC[p] == 0) {

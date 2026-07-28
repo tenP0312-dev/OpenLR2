@@ -75,7 +75,9 @@ ordinary LR2IR login succeeded.
 - The server must accept `openlr2` as an LR2-only Arena capability before this
   client can authenticate outside development.
 - NORMAL RANDOM is available for 5K/7K and 10K/14K, where the server sends
-  the LR2 seed equivalent of the canonical cross-client lane order. RANDOM is
-  clamped to NORMAL for other key modes; MIRROR remains available.
+  the LR2 seed equivalent of the canonical cross-client lane order. In DP,
+  OpenLR2 restarts the synchronized sequence for 2P so both sides match the
+  independently seeded oraja-side layouts. RANDOM is clamped to NORMAL for
+  other key modes; MIRROR remains available.
 - Production allowlists, downloadable artifacts, rollout/restart, changelog,
   and announcements are outside Issue #636.

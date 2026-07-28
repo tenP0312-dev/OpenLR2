@@ -18,6 +18,11 @@ int main()
 	assert(EncodePlayOption(14, 2, 1, true) == 112);
 	assert(EncodePlayOption(9, 2, 0, false) == 0);
 	assert(EncodePlayOption(50, 2, 2, true) == 100);
+	assert(ShouldRestartDpRandomSequence(true, 10, 1));
+	assert(ShouldRestartDpRandomSequence(true, 14, 1));
+	assert(!ShouldRestartDpRandomSequence(true, 14, 0));
+	assert(!ShouldRestartDpRandomSequence(true, 7, 1));
+	assert(!ShouldRestartDpRandomSequence(false, 14, 1));
 	assert(ArenaClearType(1, 0, 0, 100, 0) == 1);
 	assert(ArenaClearType(2, 3, 100, 100, 0) == 4);
 	assert(ArenaClearType(3, 0, 150, 100, 0) == 5);

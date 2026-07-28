@@ -10,11 +10,12 @@ namespace openlr2::arena {
 inline constexpr int kProtocolVersion = 3;
 inline constexpr std::string_view kClientFlavor = "openlr2";
 inline constexpr std::string_view kRulesetProfile = "lr2";
-inline constexpr std::string_view kClientVersion = "0.1.0-dev-openlr2";
+inline constexpr std::string_view kClientVersion = "0.1.1-dev-openlr2";
 
 bool IsMd5(std::string_view value);
 int NormalizeArenaRandom(int openLr2Random);
 int EncodePlayOption(int playMode, int random1P, int random2P, bool flip);
+bool ShouldRestartDpRandomSequence(bool arenaActive, int playMode, int player);
 int ArenaClearType(
 	int openLr2ClearType,
 	int openLr2GaugeType,

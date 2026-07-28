@@ -306,13 +306,16 @@ if(WIN32)
     target_link_libraries(OpenLR2Lib PUBLIC winhttp.lib winmm.lib)
 endif()
 
-execute_process(
-    COMMAND git rev-parse HEAD
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    OUTPUT_VARIABLE OPENLR2_ARENA_BUILD_HASH
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    ERROR_QUIET
-)
+set(OPENLR2_ARENA_BUILD_HASH "" CACHE STRING "Exact reviewed Arena source commit")
+if(NOT OPENLR2_ARENA_BUILD_HASH)
+    execute_process(
+        COMMAND git rev-parse HEAD
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE OPENLR2_ARENA_BUILD_HASH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+endif()
 if(NOT OPENLR2_ARENA_BUILD_HASH)
     set(OPENLR2_ARENA_BUILD_HASH "unknown")
 endif()

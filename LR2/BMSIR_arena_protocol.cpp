@@ -41,6 +41,17 @@ int EncodePlayOption(
 	return first + normalizeForMode(random2P) * 10 + (flip ? 100 : 0);
 }
 
+bool ShouldRestartDpRandomSequence(
+	const bool arenaActive,
+	const int playMode,
+	const int player)
+{
+	// OpenLR2 normally consumes one DxLib random sequence across both DP
+	// sides. Arena's synchronized seed represents one canonical side layout,
+	// so restart that sequence before 2P to match independently seeded clients.
+	return arenaActive && player == 1 && (playMode == 10 || playMode == 14);
+}
+
 int ArenaClearType(
 	const int openLr2ClearType,
 	const int openLr2GaugeType,
