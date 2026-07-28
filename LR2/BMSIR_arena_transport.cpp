@@ -99,7 +99,7 @@ struct WebSocketTransport::Impl {
 		{
 			std::scoped_lock lock(mutex);
 			session = WinHttpOpen(
-				L"OpenLR2-BMSIR-Arena/0.1",
+				L"OpenLR2-BMSIR-Arena/0.2",
 				WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
 				WINHTTP_NO_PROXY_NAME,
 				WINHTTP_NO_PROXY_BYPASS,
