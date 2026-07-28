@@ -27,7 +27,8 @@ third-party notices are in `THIRD_PARTY_NOTICES.md`.
    in that JSON. Do not put a password, token, or passmd5 in the Arena JSON.
 6. Start the Arena-enabled OpenLR2 build. The Arena window opens in the game
    screen. Every Arena action is available through its tabs, buttons, check
-   boxes, combo boxes, and text fields with the mouse.
+boxes, combo boxes, and text fields with the mouse.
+The lobby tab also shows the current top-ten Arena rating ranking.
 
 To restore ordinary OpenLR2, close the game and restore the backed-up
 executable.

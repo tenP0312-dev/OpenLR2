@@ -2377,6 +2377,40 @@ private:
 			&& queueStatus_ != "";
 		ImGui::Text("レート %.0f / 対戦数 %d", arenaRating_, arenaMatchesPlayed_);
 		ImGui::TextDisabled("%s", status_.c_str());
+		const auto rankingRows = rankingView_.value(
+			"rows",
+			nlohmann::json::array());
+		if (rankingRows.is_array() && !rankingRows.empty()
+			&& ImGui::CollapsingHeader(
+				"レートランキング TOP 10",
+				ImGuiTreeNodeFlags_DefaultOpen)) {
+			if (ImGui::BeginTable(
+					"##arena-ranking",
+					4,
+					ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+				ImGui::TableSetupColumn("#");
+				ImGui::TableSetupColumn("PLAYER");
+				ImGui::TableSetupColumn("RATE");
+				ImGui::TableSetupColumn("MATCH");
+				ImGui::TableHeadersRow();
+				const int count = std::min(
+					10,
+					static_cast<int>(rankingRows.size()));
+				for (int index = 0; index < count; ++index) {
+					const auto& row = rankingRows[index];
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::Text("%d", row.value("rank", index + 1));
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted(row.value("name", "-").c_str());
+					ImGui::TableNextColumn();
+					ImGui::Text("%.0f", row.value("rating", 1000.0));
+					ImGui::TableNextColumn();
+					ImGui::Text("%d", row.value("matches_played", 0));
+				}
+				ImGui::EndTable();
+			}
+		}
 		ImGui::Separator();
 		if (ImGui::Button(queued ? "現在の待機・部屋から退出" : "レートArenaへ参加")) {
 			if (queued || !roomCode_.empty()) {
