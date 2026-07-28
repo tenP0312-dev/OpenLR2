@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "server": "wss://www.bms-ir.org/new/arena/ws/client",
+  "player_id": 0,
+  "show_overlay": true,
+  "allow_cpu": true,
+  "unrestricted_rating": false
+}

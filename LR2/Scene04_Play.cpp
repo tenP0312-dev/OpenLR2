@@ -1,4 +1,5 @@
 ﻿#include "Scene04_Play.h"
+#include "BMSIR_arena.h"
 #include "Scene08_Lunaris.h"
 //drawing part
 #include <math.h>
@@ -1146,7 +1147,7 @@ int ProcI_Play(game *g) {
 			(float)g->skstruct.adjust.size_x, (float)g->skstruct.adjust.size_y, 0);
 	}
 
-	if( ((g->KeyInput.inputID[KEY_INPUT_ESCAPE] == 2 || (g->KeyInput.mouse_buttonR == 2 && !g->config.play.disableLeftClickExit) ) 
+	if( !openlr2::arena::BlocksAbortInput() && ((g->KeyInput.inputID[KEY_INPUT_ESCAPE] == 2 || (g->KeyInput.mouse_buttonR == 2 && !g->config.play.disableLeftClickExit) )
 			|| (g->KeyInput.p1_buttonInput[13] == 2 && g->KeyInput.p1_buttonInput[12] == 2)
 			|| (g->KeyInput.p2_buttonInput[13] == 2 && g->KeyInput.p2_buttonInput[12] == 2)
 			|| (g->gameplay.player[PLAYER_1].totalnotes <= g->gameplay.player[PLAYER_1].note_current && (g->KeyInput.p1_buttonInput[13] == 2 || g->KeyInput.p1_buttonInput[12] == 2 || g->KeyInput.p2_buttonInput[13] == 2 || g->KeyInput.p2_buttonInput[12] == 2))) 
@@ -1158,7 +1159,10 @@ int ProcI_Play(game *g) {
 	}
 
 	auto proc_quickrestart = [](game& game) {
-		if (game.gameplay.replay.status == 2 || game.gameplay.player[PLAYER_1].totalnotes <= game.gameplay.player[PLAYER_1].note_current || game.config.play.m_isLunaris) return;
+		if (openlr2::arena::BlocksQuickRestart()
+			|| game.gameplay.replay.status == 2
+			|| game.gameplay.player[PLAYER_1].totalnotes <= game.gameplay.player[PLAYER_1].note_current
+			|| game.config.play.m_isLunaris) return;
 		if (game.KeyInput.p1_buttonInput[12] == 1 || game.KeyInput.p2_buttonInput[12] == 1) return QuickRestart(game, true);
 		if (game.KeyInput.p1_buttonInput[13] == 1 || game.KeyInput.p2_buttonInput[13] == 1) return QuickRestart(game, false);
 	};
@@ -1704,9 +1708,10 @@ void ProcGameThread(game *g) {
 
 	SetTimeLapse(40, &g->timer1);
 
-	while (GetTimeLapse(40,&g->timer1) < g->skstruct.playstart 
-		|| g->KeyInput.inputID[2] || g->KeyInput.inputID[3] || g->KeyInput.inputID[4] || g->KeyInput.inputID[5] || g->KeyInput.inputID[6] || g->KeyInput.inputID[7] || g->KeyInput.inputID[8] || g->KeyInput.inputID[9]	|| g->KeyInput.inputID[11] 
-		|| g->KeyInput.p1_buttonInput[12] || g->KeyInput.p1_buttonInput[13] || g->KeyInput.p2_buttonInput[12] || g->KeyInput.p2_buttonInput[13]) {
+	while (GetTimeLapse(40,&g->timer1) < g->skstruct.playstart
+		|| (!openlr2::arena::IgnorePlayStartInputDelay()
+			&& (g->KeyInput.inputID[2] || g->KeyInput.inputID[3] || g->KeyInput.inputID[4] || g->KeyInput.inputID[5] || g->KeyInput.inputID[6] || g->KeyInput.inputID[7] || g->KeyInput.inputID[8] || g->KeyInput.inputID[9]	|| g->KeyInput.inputID[11]
+		|| g->KeyInput.p1_buttonInput[12] || g->KeyInput.p1_buttonInput[13] || g->KeyInput.p2_buttonInput[12] || g->KeyInput.p2_buttonInput[13])) {
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(16));
 		ReactInput(g);
@@ -1714,6 +1719,14 @@ void ProcGameThread(game *g) {
 			g->gameplay.flag_threadExist = 0;
 			return;
 		}
+	}
+
+	if (!openlr2::arena::WaitForSynchronizedStart(g)) {
+		SetTimeLapse(2, &g->timer1);
+		g->procPhase = 2;
+		g->gameplay.flag_closingPhase = 1;
+		g->gameplay.flag_threadExist = 0;
+		return;
 	}
 
 	SetTimeLapse(41, &g->timer1);
@@ -1832,6 +1845,8 @@ int ProcS_Play(game *g, sqlite3* sql) {
 			}
 		}
 	}
+
+	openlr2::arena::ApplyPlaySettings(g);
 
 	int scratchside;
 	if (g->gameplay.flag_retry == 0) {
@@ -2024,4 +2039,3 @@ int ProcS_Play(game *g, sqlite3* sql) {
 	std::jthread(ProcGameThread, g).detach(); // removed SetThreadPriority(hG, -1);
 	return 1;
 }
-

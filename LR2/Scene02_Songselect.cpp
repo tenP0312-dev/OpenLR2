@@ -1,4 +1,5 @@
 ﻿#include "Scene02_Songselect.h"
+#include "BMSIR_arena.h"
 #include "Engine.h"
 #include "LR2.h"
 #include "LR2_songmanage.h"
@@ -2484,6 +2485,7 @@ void SubProcI_Select(game *g, sqlite3 *sql) {
 
 // ProcI_Select
 int ProcI_Select(game *g, sqlite3 *sql) {
+	if (openlr2::arena::ConsumePreparedChart(g, sql)) return 1;
 
 	int l66c = g->sSelect.listSelectedBarFromScreenTop;
 

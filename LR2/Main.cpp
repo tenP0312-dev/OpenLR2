@@ -1,4 +1,5 @@
 ﻿#include "structure.h"
+#include "BMSIR_arena.h"
 #include "Engine.h"
 #include "LR2.h"
 #include "Scenes.h"
@@ -846,9 +847,11 @@ int main(int argc, char** argv) {
 	gs.sSelect.searchFocused = 0; //DEBUG: searchFocused no init in original code, this is temporary init
 	gs.sSelect.isRandomFolder = 0; //DEBUG: isRandomFolder no init in original code, this is temporary init
 	gs.sSelect.unk5000 = 0; //DEBUG: no init in original code, this is temporary init
+	openlr2::arena::Initialize(&gs);
 
 	while (true) { //main loop
 		if (ProcessMessage() || !gs.procSelecter || gs.auto2avi) break;
+		openlr2::arena::Tick(&gs, sql3);
 
 		if (GetWindowModeFlag()) { // windowed
 			int wSizeY;
@@ -2051,6 +2054,7 @@ int main(int argc, char** argv) {
 			SetDrawZ(0.);
 			SetDrawBlendMode(oldMode, oldParam);
 		}
+		openlr2::arena::DrawOverlay(&gs);
 		//TEST
 		if (gs.config.system.thread == 0 && gs.gameplay.flag_gameinput != 0) {
 			ProcGame(&gs); //why this is here
@@ -2483,6 +2487,7 @@ int main(int argc, char** argv) {
 	gs.procPhase = 3;
 	gs.procSelecter = 0;
 	gs.gameplay.previewStatus = 0;
+	openlr2::arena::Shutdown();
 	gs.net.WS_clean();
 	gs.gameplay.flag_closingPhase = 1;
 	double threadExitTimer = GetTimeWrap();
