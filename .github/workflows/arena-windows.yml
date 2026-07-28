@@ -1,9 +1,6 @@
 name: Arena Windows build
 
 on:
-  push:
-    branches:
-      - codex/issue-636-bmsir-arena
   pull_request:
 
 permissions:
@@ -12,7 +9,7 @@ permissions:
 jobs:
   build:
     name: Windows ${{ matrix.arch }}
-    runs-on: windows-latest
+    runs-on: windows-2022
     strategy:
       fail-fast: false
       matrix:
