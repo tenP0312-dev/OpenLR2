@@ -65,6 +65,7 @@ struct ArenaConfig {
 	bool allowCpu{true};
 	bool unrestrictedRating{};
 	bool stayInRoom{true};
+	bool muteChat{};
 	int playerId{};
 	std::string server{"wss://www.bms-ir.org/new/arena/ws/client"};
 	RoomSettings room;
@@ -109,6 +110,7 @@ public:
 		  config_(ReadConfig()),
 		  overlayVisible_(config_.showOverlay)
 	{
+		manualView_ = ReadManualCache();
 		LogEvent("initialize", {
 			{"enabled", config_.enabled},
 			{"client_version", std::string(kClientVersion)},
@@ -247,6 +249,13 @@ public:
 		int nextY = 124;
 		if (liveView_.is_object() && liveView_.contains("players")) {
 			nextY = DrawBattle(nextY);
+		}
+		else if (!roomCode_.empty() && roomView_.is_object()) {
+			nextY = DrawRoomRoster(nextY);
+		}
+		if (active_ && !config_.muteChat && matchChat_.is_array()
+			&& !matchChat_.empty()) {
+			nextY = DrawCompactChat(nextY);
 		}
 		if (resultVisible_ && resultView_.is_object()) {
 			nextY = DrawResult(nextY);
@@ -399,6 +408,7 @@ private:
 			result.allowCpu = value.value("allow_cpu", true);
 			result.unrestrictedRating = value.value("unrestricted_rating", false);
 			result.stayInRoom = value.value("stay_in_room", true);
+			result.muteChat = value.value("mute_chat", false);
 			result.playerId = value.value("player_id", 0);
 			result.server = value.value(
 				"server",
@@ -444,6 +454,50 @@ private:
 		return result;
 	}
 
+	static nlohmann::json ReadManualCache()
+	{
+		const std::filesystem::path path =
+			"LR2files/Config/bmsir-arena-manual.json";
+		try {
+			if (!std::filesystem::exists(path)) return nlohmann::json::object();
+			std::ifstream stream(path, std::ios::binary);
+			const auto value = nlohmann::json::parse(stream);
+			return IsBoundedArenaManual(value)
+				? value
+				: nlohmann::json::object();
+		}
+		catch (const std::exception& error) {
+			LogEvent("manual_cache_read_failed", {{"error", error.what()}});
+			return nlohmann::json::object();
+		}
+	}
+
+	void WriteManualCache() const
+	{
+		if (!IsBoundedArenaManual(manualView_)) return;
+		const std::filesystem::path path =
+			"LR2files/Config/bmsir-arena-manual.json";
+		const std::filesystem::path temporary = path.string() + ".tmp";
+		try {
+			std::filesystem::create_directories(path.parent_path());
+			{
+				std::ofstream stream(
+					temporary,
+					std::ios::binary | std::ios::trunc);
+				stream << manualView_.dump(2) << '\n';
+				if (!stream) throw std::runtime_error("manual cache write failed");
+			}
+			std::error_code error;
+			std::filesystem::remove(path, error);
+			std::filesystem::rename(temporary, path);
+		}
+		catch (const std::exception& error) {
+			LogEvent("manual_cache_write_failed", {{"error", error.what()}});
+			std::error_code ignored;
+			std::filesystem::remove(temporary, ignored);
+		}
+	}
+
 	void WriteConfig() const
 	{
 		const std::filesystem::path path = "LR2files/Config/bmsir-arena.json";
@@ -458,6 +512,7 @@ private:
 				{"allow_cpu", config_.allowCpu},
 				{"unrestricted_rating", config_.unrestrictedRating},
 				{"stay_in_room", config_.stayInRoom},
+				{"mute_chat", config_.muteChat},
 				{"room_defaults", {
 					{"room_name", config_.room.roomName},
 					{"score_rule", config_.room.scoreRule},
@@ -595,6 +650,7 @@ private:
 			if (IsBoundedArenaManual(message)) {
 				manualView_ = message;
 				manualSection_ = 0;
+				WriteManualCache();
 				LogEvent("arena_manual_received", {
 					{"version", message.value("version", "")},
 					{"sections", message["sections"].size()},
@@ -1533,6 +1589,8 @@ private:
 						+ (config_.unrestrictedRating ? "ON" : "OFF"),
 					std::string("Stay in room after match: ")
 						+ (config_.stayInRoom ? "ON" : "OFF"),
+					std::string("Local chat mute: ")
+						+ (config_.muteChat ? "ON" : "OFF"),
 					std::string("Room READY: ") + (roomReady_ ? "ON" : "OFF"),
 					std::string("Participating: ") + (IsParticipating() ? "ON" : "SPECTATE"),
 					"Close result",
@@ -1719,9 +1777,13 @@ private:
 				}
 				break;
 			case 4:
-				if (!roomCode_.empty()) RequestRoomReady(!roomReady_);
+				config_.muteChat = !config_.muteChat;
+				WriteConfig();
 				break;
 			case 5:
+				if (!roomCode_.empty()) RequestRoomReady(!roomReady_);
+				break;
+			case 6:
 				if (!roomCode_.empty()) {
 					Send({
 						{"type", "room_participation"},
@@ -1729,20 +1791,20 @@ private:
 					});
 				}
 				break;
-			case 6:
+			case 7:
 				resultVisible_ = false;
 				ratingDeltaVisible_ = false;
 				break;
-			case 7:
+			case 8:
 				if (active_ && !forceEndVoteSent_) {
 					Send(MatchMessage("force_end_vote"));
 					forceEndVoteSent_ = true;
 				}
 				break;
-			case 8:
+			case 9:
 				CopyCurrentRoomCode();
 				break;
-			case 9:
+			case 10:
 				RequestStatus();
 				break;
 			default:
@@ -2161,6 +2223,66 @@ private:
 		return startY + height;
 	}
 
+	int DrawRoomRoster(const int startY) const
+	{
+		const auto players = roomView_.value("players", nlohmann::json::array());
+		if (!players.is_array() || players.empty()) return startY;
+		const int height = 34 + static_cast<int>(players.size()) * 22;
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 210);
+		DrawBox(8, startY, 862, startY + height, GetColor(12, 12, 18), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 255);
+		const std::string roomName = DisplayString(
+			roomView_.value("room_name", "Arena room"));
+		DrawFormatString(
+			16,
+			startY + 6,
+			GetColor(180, 220, 255),
+			"ROOM %s / %s",
+			roomCode_.c_str(),
+			roomName.c_str());
+		int y = startY + 28;
+		for (const auto& player : players) {
+			const std::string name = DisplayString(player.value("name", "-"));
+			const bool participating = player.value("participating", true);
+			DrawFormatString(
+				16,
+				y,
+				GetColor(225, 225, 232),
+				"%s%s  %s  %s",
+				player.value("host", false) ? "[HOST] " : "",
+				name.c_str(),
+				participating ? "PLAYER" : "WATCH",
+				player.value("ready", false) ? "READY" : "WAIT");
+			y += 22;
+		}
+		return startY + height;
+	}
+
+	int DrawCompactChat(const int startY) const
+	{
+		const int count = std::min(2, static_cast<int>(matchChat_.size()));
+		const int height = 12 + count * 20;
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 200);
+		DrawBox(8, startY, 862, startY + height, GetColor(12, 12, 18), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 255);
+		int y = startY + 6;
+		for (int index = static_cast<int>(matchChat_.size()) - count;
+			index < static_cast<int>(matchChat_.size());
+			index++, y += 20) {
+			const auto& message = matchChat_[index];
+			const std::string name = DisplayString(message.value("name", "-"));
+			const std::string text = DisplayString(message.value("text", ""));
+			DrawFormatString(
+				16,
+				y,
+				GetColor(215, 215, 220),
+				"%s: %.120s",
+				name.c_str(),
+				text.c_str());
+		}
+		return startY + height;
+	}
+
 	void DrawPanel(const int startY) const
 	{
 		int screenWidth = 1280;
@@ -2205,6 +2327,14 @@ private:
 
 	void DrawChat(const int startY) const
 	{
+		if (config_.muteChat) {
+			DrawString(
+				16,
+				startY,
+				"Local chat mute is ON. Disable it on MAIN to display chat.",
+				GetColor(230, 210, 160));
+			return;
+		}
 		DrawString(16, startY, "Public lobby chat (latest 20)", GetColor(180, 220, 255));
 		int y = startY + 22;
 		const int first = lobbyChat_.is_array()

@@ -6,6 +6,7 @@
   "allow_cpu": true,
   "unrestricted_rating": false,
   "stay_in_room": true,
+  "mute_chat": false,
   "room_defaults": {
     "room_name": "OpenLR2 Arena room",
     "score_rule": "exscore",

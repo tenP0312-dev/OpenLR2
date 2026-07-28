@@ -62,9 +62,11 @@ Enter.
   chart scope; all/host/rotating nomination; single, all-picks, and first-to
   series.
 - Public-lobby and room/match chat, with passwords and chat text excluded from
-  diagnostics.
+  diagnostics. During play the latest two room/match messages remain visible;
+  local chat mute hides both chat pages and the compact play display.
 - Server-delivered manual, so server-only rule changes do not require a new
-  OpenLR2 executable.
+  OpenLR2 executable. The latest bounded valid manual is cached under
+  `LR2files/Config` for offline display.
 - Persistent results, large rated delta display, and explicit close action.
 - Phase/action text and all countdowns, with the final 10 seconds yellow and
   final 5 seconds red.
