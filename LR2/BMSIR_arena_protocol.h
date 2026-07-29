@@ -8,10 +8,10 @@
 
 namespace openlr2::arena {
 
-inline constexpr int kProtocolVersion = 5;
+inline constexpr int kProtocolVersion = 6;
 inline constexpr std::string_view kClientFlavor = "openlr2";
 inline constexpr std::string_view kRulesetProfile = "lr2";
-inline constexpr std::string_view kClientVersion = "0.3.0-dev-openlr2";
+inline constexpr std::string_view kClientVersion = "0.4.0-dev-openlr2";
 
 enum class CountdownBand {
 	Normal,

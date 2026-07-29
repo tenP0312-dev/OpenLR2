@@ -227,7 +227,7 @@ public:
 		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 220);
 		DrawBox(8, 8, 862, 116, background, TRUE);
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 255);
-		DrawString(16, 14, "BMS-IR Arena for OpenLR2 0.3.0 / protocol v5", connectedColor);
+		DrawString(16, 14, "BMS-IR Arena for OpenLR2 0.4.0 / protocol v6", connectedColor);
 		DrawFormatString(
 			16,
 			34,
@@ -1029,18 +1029,11 @@ private:
 			? message["deadline"].get<double>()
 			: 0.0;
 		const bool canNominate = message.value("can_nominate", true);
-		if (matchMode_ == "ranked") {
-			if (!nominationSkipped_) {
-				nominationSkipped_ = true;
-				Send(MatchMessage("chart_nomination_skip"));
-				status_ = "server-random nomination submitted";
-			}
-		}
-		else {
-			status_ = canNominate
-				? "select a chart and nominate it from the Arena window"
-				: "waiting for the selector";
-		}
+		status_ = canNominate
+			? (matchMode_ == "ranked"
+				? "select one chart for rated BO2"
+				: "select a chart and nominate it from the Arena window")
+			: "waiting for the selector";
 	}
 
 	void ReceiveChart(const nlohmann::json& message)
@@ -1437,7 +1430,6 @@ private:
 
 	void ResetMatchTransient()
 	{
-		nominationSkipped_ = false;
 		optionReadySent_ = false;
 		chartAvailable_ = false;
 		launchRequested_ = false;
@@ -2126,7 +2118,7 @@ private:
 			authenticated_ ? "CONNECTED" : "CONNECTING");
 		ImGui::SameLine();
 		ImGui::TextDisabled(
-			"0.3.0 / protocol v%d",
+			"0.4.0 / protocol v%d",
 			kProtocolVersion);
 		ImGui::Separator();
 
@@ -2172,7 +2164,7 @@ private:
 	void DrawImGuiStatus()
 	{
 		ImGui::SetNextWindowPos(ImVec2(8.0f, 8.0f), ImGuiCond_FirstUseEver);
-		ImGui::SetNextWindowSize(ImVec2(720.0f, 128.0f), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(720.0f, 150.0f), ImGuiCond_FirstUseEver);
 		ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse
 			| ImGuiWindowFlags_NoTitleBar
 			| ImGuiWindowFlags_NoSavedSettings;
@@ -2188,7 +2180,7 @@ private:
 			authenticated_
 				? ImVec4(0.52f, 1.0f, 0.60f, 1.0f)
 				: ImVec4(1.0f, 0.78f, 0.35f, 1.0f),
-			"BMS-IR Arena OpenLR2 0.3.0  %s",
+			"BMS-IR Arena OpenLR2 0.4.0  %s",
 			authenticated_ ? "CONNECTED" : "CONNECTING");
 		const auto [action, seconds, deadline] = PhaseActionAndCountdown();
 		if (deadline) {
@@ -2210,6 +2202,12 @@ private:
 			arenaMatchesPlayed_,
 			queueStatus_.c_str(),
 			roomCode_.empty() ? "-" : roomCode_.c_str());
+		if (seriesFormat_ == "bo2" && (reserved_ || active_ || resultVisible_)) {
+			ImGui::TextColored(
+				ImVec4(1.0f, 0.83f, 0.42f, 1.0f),
+				"BO2（2曲総合） / 第%d曲 / 2",
+				std::clamp(seriesRound_, 1, 2));
+		}
 		ImGui::TextDisabled("%s", status_.c_str());
 		if (canOpenPanel) {
 			if (ImGui::Button(panelOpen_ ? "Arenaメニューを閉じる" : "Arenaメニューを開く")) {
@@ -2233,11 +2231,15 @@ private:
 			return;
 		}
 		const auto chart = liveView_.value("chart", nlohmann::json::object());
+		const std::string seriesRoundLabel = seriesFormat_ == "bo2"
+			? " / BO2 第" + std::to_string(std::clamp(seriesRound_, 1, 2)) + "曲"
+			: "";
 		ImGui::Text(
-			"%s / %s / %s",
+			"%s / %s / %s%s",
 			scoreRule_.c_str(),
 			liveView_.value("play_mode_label", playModeLabel_).c_str(),
-			chart.value("title", chartTitle_).c_str());
+			chart.value("title", chartTitle_).c_str(),
+			seriesRoundLabel.c_str());
 		for (const auto& player : players) {
 			double rate = player.value("battle_rate", -1.0);
 			if (rate < 0.0) {
@@ -2250,6 +2252,10 @@ private:
 				+ "  EX " + std::to_string(player.value("exscore", 0))
 				+ " / BP " + std::to_string(player.value("minbp", 0))
 				+ " / COMBO " + std::to_string(player.value("max_combo", 0))
+				+ (seriesFormat_ == "bo2"
+					? " / " + std::to_string(player.value("series_points", 0))
+						+ "pt"
+					: "")
 				+ (player.value("finished", false) ? "  DONE" : "");
 			ImGui::ProgressBar(
 				static_cast<float>(std::clamp(rate, 0.0, 1.0)),
@@ -2275,7 +2281,7 @@ private:
 
 	void DrawImGuiResult()
 	{
-		ImGui::SetNextWindowSize(ImVec2(610.0f, 300.0f), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(860.0f, 320.0f), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowPos(ImVec2(350.0f, 210.0f), ImGuiCond_FirstUseEver);
 		if (!ImGui::Begin(
 				"Arena リザルト",
@@ -2297,9 +2303,22 @@ private:
 			ImGui::SetWindowFontScale(1.0f);
 		}
 		const auto players = resultView_.value("players", nlohmann::json::array());
+		const auto series = resultView_.value(
+			"series",
+			nlohmann::json::object());
+		const bool bo2 = series.value(
+			"series_format",
+			seriesFormat_) == "bo2";
+		if (bo2) {
+			ImGui::TextColored(
+				ImVec4(1.0f, 0.83f, 0.42f, 1.0f),
+				"BO2（2曲総合） / 第%d曲 / 2%s",
+				std::clamp(seriesRound_, 1, 2),
+				series.value("complete", false) ? " / FINAL" : "");
+		}
 		if (ImGui::BeginTable(
 				"##result-table",
-				6,
+				bo2 ? 9 : 6,
 				ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 			ImGui::TableSetupColumn("#");
 			ImGui::TableSetupColumn("PLAYER");
@@ -2307,6 +2326,11 @@ private:
 			ImGui::TableSetupColumn("BP");
 			ImGui::TableSetupColumn("COMBO");
 			ImGui::TableSetupColumn("CLEAR");
+			if (bo2) {
+				ImGui::TableSetupColumn("POINT");
+				ImGui::TableSetupColumn("TOTAL EX%");
+				ImGui::TableSetupColumn("FINAL");
+			}
 			ImGui::TableHeadersRow();
 			for (const auto& player : players) {
 				ImGui::TableNextRow();
@@ -2322,6 +2346,29 @@ private:
 				ImGui::Text("%d", player.value("max_combo", 0));
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted(player.value("clear_label", "").c_str());
+				if (bo2) {
+					ImGui::TableNextColumn();
+					ImGui::Text("%d", player.value("series_points", 0));
+					ImGui::TableNextColumn();
+					const int maximum = player.value(
+						"series_max_exscore_total",
+						0);
+					if (maximum > 0) {
+						ImGui::Text(
+							"%.2f",
+							player.value("series_exscore_total", 0)
+								* 100.0 / maximum);
+					}
+					else {
+						ImGui::TextUnformatted("-");
+					}
+					ImGui::TableNextColumn();
+					const int finalPlacement = player.value(
+						"series_placement",
+						0);
+					if (finalPlacement > 0) ImGui::Text("%d", finalPlacement);
+					else ImGui::TextUnformatted("-");
+				}
 			}
 			ImGui::EndTable();
 		}
@@ -2452,13 +2499,15 @@ private:
 			ImGui::SeparatorText("現在の試合");
 			if (ImGui::Button("このオプションで準備完了")) SendOptionReady();
 		}
-		if (reserved_ && phase_ == "selecting" && matchMode_ != "ranked") {
+		if (reserved_ && phase_ == "selecting") {
 			ImGui::SeparatorText("選曲");
 			if (ImGui::Button("現在の譜面を選曲")) NominateCurrentChart();
-			ImGui::SameLine();
-			if (ImGui::Button("ランダム候補")) {
-				Send(MatchMessage("chart_nomination_skip"));
-				status_ = "random nomination submitted";
+			if (matchMode_ != "ranked") {
+				ImGui::SameLine();
+				if (ImGui::Button("ランダム候補")) {
+					Send(MatchMessage("chart_nomination_skip"));
+					status_ = "random nomination submitted";
+				}
 			}
 		}
 		if (active_ && !forceEndVoteSent_) {
@@ -3013,7 +3062,6 @@ private:
 	bool helloSent_{};
 	bool authenticated_{};
 	bool reserved_{};
-	bool nominationSkipped_{};
 	bool optionReadySent_{};
 	bool chartAvailable_{};
 	bool launchRequested_{};

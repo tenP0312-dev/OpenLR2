@@ -8,6 +8,8 @@ using namespace openlr2::arena;
 
 int main()
 {
+	assert(kProtocolVersion == 6);
+	assert(kClientVersion == "0.4.0-dev-openlr2");
 	assert(IsMd5("0123456789abcdef0123456789ABCDEF"));
 	assert(!IsMd5("0123"));
 	assert(!IsMd5("z123456789abcdef0123456789abcdef"));
