@@ -1,4 +1,4 @@
-# BMS-IR Arena for OpenLR2 0.3.0
+# BMS-IR Arena for OpenLR2 0.4.0
 
 Status: controlled direct-link tester client for Issue
 [`BMS-Mania/IR#656`](https://github.com/BMS-Mania/IR/issues/656). It has not
@@ -49,7 +49,9 @@ remaining players vote.
 ## Implemented lifecycle
 
 - WSS connection through Windows WinHTTP, with no extra networking DLL.
-- Protocol v5 hello as `client_flavor=openlr2` and `ruleset_profile=lr2`.
+- Protocol v6 hello as `client_flavor=openlr2` and `ruleset_profile=lr2`.
+- Rated Arena is a fixed two-chart BO2. Each human nominates one chart; the
+  result view shows per-round points, combined EX rate, and final placement.
 - Existing LR2-compatible game credential reuse.
 - Queue entry/cancel with the saved CPU and unrestricted-rating preferences.
 - Server-managed CPU matches. CPU has no rating; when no human opponent is
